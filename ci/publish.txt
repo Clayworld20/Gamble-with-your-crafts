@@ -1,10 +1,10 @@
   Determining projects to restore...
-  Restored /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj (in 1.42 sec).
+  Restored /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj (in 1.71 sec).
   GambleWithYourCrafts -> /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/bin/Release/net8.0/win-x64/GambleWithYourCrafts.dll
   GambleWithYourCrafts -> /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/publish/win-x64/
-total 1192
-drwxr-xr-x 2 runner runner   4096 Oct  4 14:38 .
-drwxr-xr-x 3 runner runner   4096 Oct  4 14:38 ..
--rwxr-xr-x 1 runner runner 883577 Oct  4 14:38 GambleWithYourCrafts.exe
--rw-r--r-- 1 runner runner  58496 Oct  4 14:38 GambleWithYourCrafts.pdb
+total 1196
+drwxr-xr-x 2 runner runner   4096 Oct  4 14:39 .
+drwxr-xr-x 3 runner runner   4096 Oct  4 14:39 ..
+-rwxr-xr-x 1 runner runner 887673 Oct  4 14:39 GambleWithYourCrafts.exe
+-rw-r--r-- 1 runner runner  58548 Oct  4 14:39 GambleWithYourCrafts.pdb
 -rwxr--r-- 1 runner runner 262944 Feb 21  2020 steam_api64.dll
