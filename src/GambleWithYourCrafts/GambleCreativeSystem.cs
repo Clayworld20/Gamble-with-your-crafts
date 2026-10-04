@@ -845,6 +845,27 @@ public sealed class GambleCreativeSystem : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Применить правку, пришедшую из другого мира (мост с Minecraft).
+    ///
+    /// <para>
+    /// Меняет только локальный мир и НЕ рассылает правку по P2P: она родилась не
+    /// в сессии казино, а в Minecraft. Событие <see cref="WorldEditApplied"/> тоже
+    /// не поднимается — иначе правка ушла бы обратно в Minecraft и получилась бы
+    /// эхо-петля «Minecraft → казино → Minecraft».
+    /// </para>
+    /// </summary>
+    public bool ApplyExternalBlock(int x, int y, int z, BlockId block)
+    {
+        if (block != BlockId.Air && !Blocks.IsDefined((byte)block)) return false;
+
+        var pos = new VoxelPos(x, y, z);
+        if (!World.InBounds(pos)) return false;
+        if (World.Get(pos) == block) return false;
+
+        return World.Set(pos, block);
+    }
+
     /// <summary>Сломать блок (вернуть его в инвентарь).</summary>
     public bool Break(int x, int y, int z, out string message)
     {

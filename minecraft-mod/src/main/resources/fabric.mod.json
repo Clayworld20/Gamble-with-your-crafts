@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "gwyc_bridge",
+  "version": "1.0.0",
+  "name": "Gamble With Your Crafts — мост",
+  "description": "Связывает мир Minecraft с казино Gamble With Your Crafts: блоки, поставленные в креативе, появляются в игровом мире казино, а выигрыш выдаёт блоки в Minecraft.",
+  "authors": [
+    "Clayworld20"
+  ],
+  "contact": {
+    "homepage": "https://github.com/Clayworld20/Gamble-with-your-crafts"
+  },
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.gwyc.bridge.GwycBridgeMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.14.21",
+    "fabric-api": "*",
+    "minecraft": "~1.20.1",
+    "java": ">=17"
+  }
+}

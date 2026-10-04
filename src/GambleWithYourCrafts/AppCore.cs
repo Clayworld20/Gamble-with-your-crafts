@@ -107,6 +107,12 @@ public sealed class LaunchOptions
 
     public int Seed { get; private set; } = Environment.TickCount;
 
+    /// <summary>Путь к нативной библиотеке моста (GWYFCraftsBridge.dll). Пусто — мост выключен.</summary>
+    public string BridgePath { get; private set; } = string.Empty;
+
+    /// <summary>Файл канала обмена с Minecraft. Должен совпадать с настройкой мода.</summary>
+    public string BridgeChannel { get; private set; } = "gwyc_bridge.channel";
+
     public string Error { get; private set; } = string.Empty;
 
     public static LaunchOptions Parse(string[] args)
@@ -184,6 +190,12 @@ public sealed class LaunchOptions
                     case "--seed":
                         options.Seed = int.Parse(Next("1"), CultureInfo.InvariantCulture);
                         break;
+                    case "--bridge":
+                        options.BridgePath = Next();
+                        break;
+                    case "--bridge-channel":
+                        options.BridgeChannel = Next("gwyc_bridge.channel");
+                        break;
                     case "--help":
                     case "-h":
                     case "/?":
@@ -221,6 +233,8 @@ public sealed class LaunchOptions
           --browse            показать публичные лобби на старте
           --world <WxHxD>     размер воксельного мира (по умолчанию 48x28x48, максимум {VoxelGrid.MaxDimension})
           --seed <n>          детерминированный пресет арены
+          --bridge <файл>     подключить нативный мост к Minecraft (GWYFCraftsBridge.dll/.so)
+          --bridge-channel <файл>  файл канала обмена (по умолчанию gwyc_bridge.channel)
           --sandbox           бесконечные блоки на стройку (казино всё равно играет на инвентарь)
           --name <ник>        переопределить ник (по умолчанию — Steam-ник)
           --no-color          без ANSI-цветов (для перенаправленного вывода)
@@ -256,6 +270,77 @@ public static class AppCore
     public static ulong PlayerId { get; private set; }
 
     public static uint AppId => SteamReady ? SteamClient.AppId.Value : SpacewarAppId;
+
+    /// <summary>
+    /// Подключённый нативный мост к Minecraft (null — мост не подключён).
+    ///
+    /// <para>
+    /// Мост — это наш собственный плагин: игра сама загружает его и сама отдаёт
+    /// события. Мы не читаем память чужого процесса и не правим чужие бинарники —
+    /// см. native/include/gwyc/plugin_abi.h и README, раздел про мост.
+    /// </para>
+    /// </summary>
+    public static BridgePluginLoader.BridgePlugin? Bridge { get; private set; }
+
+    /// <summary>
+    /// Загрузить мост и отдать ему события игры. Возвращает false, если библиотеки
+    /// нет или она несовместима: игра в этом случае просто работает без Minecraft.
+    /// </summary>
+    public static bool AttachBridge(string libraryPath, string channelPath, BridgePluginLoader.BridgeEvents events)
+    {
+        if (Bridge is not null) return true;
+        if (events is null) throw new ArgumentNullException(nameof(events));
+
+        Bridge = BridgePluginLoader.Load(
+            libraryPath: libraryPath,
+            channelPath: channelPath,
+            transport: BridgePluginLoader.GwycTransport.SharedMemory,
+            ringCapacity: 128 * 1024,
+            maxCubes: 8192,
+            gameTag: BuildInfo.Tag);
+
+        if (Bridge is null) return false;
+
+        BridgePluginLoader.GwycStatus status = Bridge.Start(events);
+        if (status != BridgePluginLoader.GwycStatus.Ok)
+        {
+            Log.Error($"Мост не запустился: {status}. Мир Minecraft не подключён.");
+            Bridge.Dispose();
+            Bridge = null;
+            return false;
+        }
+
+        Log.Ok("Мост запущен: мир Minecraft подключён (критерий — мод gwyc_bridge на сервере).");
+        return true;
+    }
+
+    /// <summary>Отправить в Minecraft правку вокселя (если мост подключён).</summary>
+    public static void NotifyVoxelEdit(int x, int y, int z, BlockId block)
+    {
+        Bridge?.PublishVoxelEdit(x, y, z, (byte)block, fromLocalPlayer: true);
+    }
+
+    /// <summary>Отправить в Minecraft результат раунда казино (если мост подключён).</summary>
+    public static void NotifyCasinoResult(ulong playerId, string playerName, byte game, string target,
+                                          byte blockKind, int stake, int multiplier, int payout, bool won)
+    {
+        Bridge?.PublishBetResolved(
+            playerId: (uint)(playerId & 0xFFFF_FFFF),
+            stake: stake,
+            payout: payout,
+            multiplier: multiplier,
+            won: won,
+            game: game == 0 ? (byte)1 : game,
+            blockKind: blockKind,
+            target: target,
+            playerName: playerName);
+    }
+
+    /// <summary>Строка чата сессии → в чат Minecraft.</summary>
+    public static void NotifyChat(string author, string text)
+    {
+        Bridge?.PublishChat(channel: 0, author: author, text: text);
+    }
 
     /// <summary>
     /// Поднять Steamworks. Callback'и качаем вручную (asyncCallbacks: false),
@@ -299,20 +384,40 @@ public static class AppCore
     /// <summary>Прокачать очередь callback'ов Steam (лобби, P2P-session, оверлей). Один раз в кадр.</summary>
     public static void Tick()
     {
-        if (!SteamReady) return;
-
-        try
+        if (SteamReady)
         {
-            SteamClient.RunCallbacks();
+            try
+            {
+                SteamClient.RunCallbacks();
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Ошибка прокачки Steam callback'ов: {ex.Message}");
+            }
         }
-        catch (Exception ex)
+
+        // Мост тикает всегда, когда подключён: он разбирает входящие кадры и зовёт
+        // наши колбэки. Делать это нужно на главном потоке — игровые системы
+        // не потокобезопасны.
+        if (Bridge is not null)
         {
-            Log.Error($"Ошибка прокачки Steam callback'ов: {ex.Message}");
+            BridgePluginLoader.GwycStatus status = Bridge.Tick();
+            if (status != BridgePluginLoader.GwycStatus.Ok)
+            {
+                Log.Warn($"Мост вернул {status} — обмен с Minecraft приостановлен.");
+            }
         }
     }
 
     public static void Shutdown()
     {
+        if (Bridge is not null)
+        {
+            Bridge.Dispose();
+            Bridge = null;
+            Log.Info("Мост остановлен.");
+        }
+
         if (!SteamReady) return;
 
         try

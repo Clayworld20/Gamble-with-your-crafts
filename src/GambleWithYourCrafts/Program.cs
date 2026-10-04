@@ -94,6 +94,12 @@ internal sealed class GameApp : IDisposable
         _session.Status += message => Log.Info(message);
         _session.CasinoResolved += OnCasinoResolved;
 
+        // Всё, что меняется в мире казино (стройка, снос, чужие правки), уходит
+        // в Minecraft через мост — если он подключён ключом --bridge.
+        _session.WorldEditApplied += OnWorldEditApplied;
+
+        AttachBridgeIfRequested();
+
         _mapHeight = Math.Max(1, Math.Min(_world.SizeY - 1, 2));
 
         Log.Ok($"Мир готов: {_world.Describe()}, стартовая арена из {preset.Count} вокселей.");
@@ -665,11 +671,91 @@ internal sealed class GameApp : IDisposable
     /// <summary>Короткая анимация для того, кто ставил: саспенс перед оглашением результата.</summary>
     private void OnCasinoResolved(CasinoResultMessage result)
     {
+        // Результат раунда уходит в Minecraft: мод покажет его в чате, а мост
+        // сам превратит выигрыш в GrantReward (см. GwycBridge_PublishBetResolved).
+        if (AppCore.Bridge is not null)
+        {
+            AppCore.NotifyCasinoResult(
+                playerId: result.PlayerId,
+                playerName: result.PlayerName,
+                game: result.Game,
+                target: result.Target,
+                blockKind: KindOfKey(result.BlockKey),
+                stake: result.Stake,
+                multiplier: result.Multiplier,
+                payout: result.Payout,
+                won: result.Won);
+        }
+
         bool isMine = result.PlayerId == AppCore.PlayerId || (!_steamReady && result.PlayerId == 0);
         if (!isMine) return;
 
         if (result.Game == (byte)CasinoGame.Dice) AnimateDice(result);
         else AnimateRoulette(result);
+    }
+
+    /// <summary>Правка в мире казино → в Minecraft (мост сам схлопывает повторы).</summary>
+    private void OnWorldEditApplied(VoxelEdit edit)
+    {
+        if (AppCore.Bridge is null) return;
+        AppCore.NotifyVoxelEdit(edit.Pos.X, edit.Pos.Y, edit.Pos.Z, edit.Block);
+    }
+
+    /// <summary>
+    /// Ключ блока («gold») → номер типа в протоколе моста. Нумерация BlockId и
+    /// BlockKind совпадает (см. VoxelTo3DWorld.h и protocol.h), но ищем по ключу,
+    /// чтобы порядок перечисления нельзя было случайно перепутать.
+    /// </summary>
+    private static byte KindOfKey(string key)
+    {
+        foreach (BlockInfo info in Blocks.All)
+        {
+            if (string.Equals(info.Key, key, StringComparison.OrdinalIgnoreCase)) return (byte)info.Id;
+        }
+        return (byte)BlockId.Stone;
+    }
+
+    /// <summary>
+    /// Поднять мост, если игра запущена с --bridge. Без ключа игра работает как
+    /// раньше: мост — необязательная добавка, а не обязательная зависимость.
+    /// </summary>
+    private void AttachBridgeIfRequested()
+    {
+        if (string.IsNullOrWhiteSpace(_options.BridgePath)) return;
+
+        var events = new BridgePluginLoader.BridgeEvents
+        {
+            VoxelApply = (x, y, z, blockKind, sourceId) => ApplyVoxelFromMinecraft(x, y, z, blockKind, sourceId),
+            RewardRequest = reward => Log.Ok($"[мост] Minecraft просит выдать {reward.Count} × блока #{reward.BlockKind} игроку #{reward.PlayerId}."),
+            ChatFromMinecraft = (author, text) => Log.Info($"💬 (Minecraft) {author}: {text}"),
+            PeerState = connected => Log.Ok(connected
+                ? "[мост] Minecraft на связи."
+                : "[мост] Minecraft отключился от канала."),
+            Log = (level, message) =>
+            {
+                // Уровни приходят из C++ (0 — инфо, 1 — предупреждение, 2 — ошибка).
+                string text = $"[мост] {message}";
+                if (level == 2) Log.Error(text);
+                else if (level == 1) Log.Warn(text);
+                else Log.Info(text);
+            },
+        };
+
+        AppCore.AttachBridge(_options.BridgePath, _options.BridgeChannel, events);
+    }
+
+    /// <summary>Блок из Minecraft появился в мире казино.</summary>
+    private void ApplyVoxelFromMinecraft(int x, int y, int z, byte blockKind, ushort sourceId)
+    {
+        if (blockKind > (byte)BlockId.Lamp) return;
+
+        var block = (BlockId)blockKind;
+        if (_session.ApplyExternalBlock(x, y, z, block) && AppCore.Bridge is not null)
+        {
+            // В консоль не пишем каждую клетку: при включении мода сюда летит
+            // целый поток правок, и сообщения затопят интерфейс.
+            Log.Debug($"[мост] Minecraft {(block == BlockId.Air ? "убрал" : "поставил")} блок в {x},{y},{z} (источник #{sourceId}).");
+        }
     }
 
     private static void AnimateDice(CasinoResultMessage result)

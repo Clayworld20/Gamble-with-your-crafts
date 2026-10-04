@@ -24,6 +24,20 @@ logs/
 .steam/
 crashdumps/
 
+# --- Сборка нативного моста (CMake) ---
+native/build/
+native/build-*/
+native/out/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# --- Сборка Fabric-мода (Gradle / Loom) ---
+minecraft-mod/build/
+minecraft-mod/.gradle/
+.gradle/
+run/
+
 # --- OS noise ---
 .DS_Store
 Thumbs.db
