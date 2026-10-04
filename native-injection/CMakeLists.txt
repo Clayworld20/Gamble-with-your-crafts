@@ -48,6 +48,12 @@ set(GWYF_CORE_SOURCES
     src/VoxelWorld.cpp
 )
 
+# Общая память и события WinAPI. Нужны и движку в игре, и JNI-мосту, и CLI:
+# без этого файла CLI ловит LNK2019 на Bridge::Open/~Bridge (проверено на CI).
+set(GWYF_IPC_SOURCES
+    src/IpcBridge.cpp
+)
+
 # Windows-специфика: разделяемая память, Mono, паттерны, MinHook, движок игры.
 set(GWYF_WINDOWS_SOURCES
     src/IpcBridge.cpp
@@ -124,7 +130,7 @@ if(WIN32)
     # 2. Нативная библиотека для JVM Minecraft (JNI).
     find_package(JNI QUIET)
     if(JNI_FOUND)
-        add_library(gwyf_native_bridge SHARED src/Native_JNI_Bridge.cpp src/IpcBridge.cpp)
+        add_library(gwyf_native_bridge SHARED src/Native_JNI_Bridge.cpp ${GWYF_IPC_SOURCES})
         gwyf_set_common_flags(gwyf_native_bridge)
         target_include_directories(gwyf_native_bridge PRIVATE ${JNI_INCLUDE_DIRS})
         target_link_libraries(gwyf_native_bridge PRIVATE gwyf_core ${JNI_LIBRARIES})
@@ -135,8 +141,10 @@ if(WIN32)
             "Укажите -DJAVA_HOME=<путь к JDK> или -DJNI_INCLUDE_DIR=<...>/include -DJNI_LIBRARY=<...>.")
     endif()
 
-    # 3. Инжектор и диагностика.
-    add_executable(gwyfbridge tools/cli/GwyfBridgeCli.cpp)
+    # 3. Инжектор и диагностика. CLI сам открывает общую память (watch/dump/flush),
+    # поэтому ${GWYF_IPC_SOURCES} обязан быть и здесь: на Linux этот файл не
+    # собирается, и без явного перечисления линковка падала только на MSVC.
+    add_executable(gwyfbridge tools/cli/GwyfBridgeCli.cpp ${GWYF_IPC_SOURCES})
     gwyf_set_common_flags(gwyfbridge)
     target_link_libraries(gwyfbridge PRIVATE gwyf_core)
     set_target_properties(gwyfbridge PROPERTIES OUTPUT_NAME "gwyfbridge")
