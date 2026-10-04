@@ -250,7 +250,7 @@ public static class SelfTest
             Throws(() => mismatch.FromBytes(raw)));
 
         runner.Check("слишком большой мир отвергается",
-            Throws(() => new VoxelGrid(256, 256, 256)));
+            ThrowsOnGridCreate(256, 256, 256));
 
         var small = new VoxelGrid(4, 4, 4);
         runner.Check("Resize в допустимых границах", SafeResize(small, 8, 6, 8) && small.SizeX == 8 && small.SizeY == 6 && small.SizeZ == 8);
@@ -263,6 +263,20 @@ public static class SelfTest
             runner.Check($"перечисленный воксель {edit.Pos} не пустой", copy.Get(edit.Pos) == edit.Block);
         }
         runner.Check("перебор непустых вокселей совпадает с подсчётом", enumerated == copy.CountNonAir());
+    }
+
+    /// <summary>Проверка, что конструктор отвергает недопустимые размеры мира.</summary>
+    private static bool ThrowsOnGridCreate(int x, int y, int z)
+    {
+        try
+        {
+            _ = new VoxelGrid(x, y, z);
+            return false;
+        }
+        catch (ProtocolException)
+        {
+            return true;
+        }
     }
 
     private static bool SafeResize(VoxelGrid grid, int x, int y, int z)
@@ -924,10 +938,12 @@ public sealed class LoopbackNetwork : INetTransport
 public sealed class TestRunner
 {
     private readonly List<string> _failures = new();
+    private string _section = "общее";
     private int _passed;
 
-    public static void Section(string title)
+    public void Section(string title)
     {
+        _section = title;
         Console.WriteLine();
         Console.WriteLine($"── {title} ──");
     }
@@ -941,7 +957,7 @@ public sealed class TestRunner
             return;
         }
 
-        _failures.Add(name);
+        _failures.Add($"[{_section}] {name}");
         Console.WriteLine($"  [FAIL] {name}{(detail.Length > 0 ? $" — {detail}" : string.Empty)}");
     }
 
