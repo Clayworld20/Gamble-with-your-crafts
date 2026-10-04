@@ -94,7 +94,60 @@ void CheckEqual(const T& actual, const T& expected, const std::string& name) {
     Check(false, name, detail);
 }
 
+#if GWYF_WINDOWS
+
+// ── Отчёт об аварийном завершении ───────────────────────────────────────────
+//
+// Тесты на Windows ловили «SegFault» без единой строки о месте падения:
+// отладочных символов в CI нет, а обработчика исключений — тоже. Векторный
+// обработчик ниже печатает последнюю начатую секцию и адрес сбоя, пользуясь
+// только уже выделенными буферами: в момент падения heap может быть повреждён,
+// поэтому здесь нет ни malloc, ни std::string, ни std::printf.
+
+char g_currentSection[128] = "до первой секции";
+
+/// Имя секции, в которой сейчас идёт работа (для обработчика исключений).
+void RememberSection(const char* title) {
+    if (title == nullptr) return;
+    usize index = 0;
+    for (; index + 1 < sizeof(g_currentSection) && title[index] != '\0'; ++index) {
+        g_currentSection[index] = title[index];
+    }
+    g_currentSection[index] = '\0';
+}
+
+void ReportFatal(const char* text) {
+    const usize length = std::strlen(text);
+    std::fwrite(text, 1, length, stdout);
+    std::fflush(stdout);
+}
+
+/// Первокаскадный обработчик: печатает секцию и код исключения, после чего
+/// передаёт управление дальше — поведение процесса (и код возврата) не меняем.
+LONG WINAPI FatalHandler(EXCEPTION_POINTERS* info) {
+    if (info == nullptr || info->ExceptionRecord == nullptr) return EXCEPTION_CONTINUE_SEARCH;
+
+    const DWORD code = info->ExceptionRecord->ExceptionCode;
+    if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_STACK_OVERFLOW &&
+        code != EXCEPTION_ILLEGAL_INSTRUCTION && code != EXCEPTION_INT_DIVIDE_BY_ZERO) {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+
+    char line[256];
+    const int written = std::snprintf(line, sizeof(line),
+                                      "\nПРОВАЛ: аварийное завершение (код 0x%08lX) в секции «%s», адрес сбоя %p\n",
+                                      static_cast<unsigned long>(code), g_currentSection,
+                                      info->ExceptionRecord->ExceptionAddress);
+    if (written > 0) ReportFatal(line);
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+#endif  // GWYF_WINDOWS
+
 void Section(const char* title) {
+#if GWYF_WINDOWS
+    RememberSection(title);
+#endif
     std::printf("\n=== %s ===\n", title);
     // См. Check(): без сброса буфера последняя начатая секция не видна в журнале
     // при аварийном завершении, и падение невозможно локализовать.
@@ -898,6 +951,11 @@ int main(int argc, char** argv) {
     }
 
     log::SetLevel(log::Level::Warn);
+#if GWYF_WINDOWS
+    // Отчёт об аварии ставим до первой секции: иначе падение в тесте остаётся
+    // без объяснения (в CI нет отладочных символов и дампа).
+    ::AddVectoredExceptionHandler(1, &FatalHandler);
+#endif
     std::printf("gwyfbridge selftest — проверка моста GWYF ↔ Minecraft\n");
     std::fflush(stdout);
 

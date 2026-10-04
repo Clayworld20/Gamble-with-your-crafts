@@ -2,15 +2,14 @@
 # Сводка о сбое сборки для тех, кто читает её через API.
 #
 # Журналы GitHub Actions лежат в хранилище Azure, недоступном из некоторых
-# песочниц, поэтому хвосты журналов складываются в $GITHUB_STEP_SUMMARY (его
-# отдаёт API check-runs) и дублируются аннотациями ошибок (их отдаёт
-# check-runs/<id>/annotations). Так причину сбоя видно без скачивания архива
-# журналов.
+# песочниц, поэтому журналы дублируются аннотациями (их отдаёт
+# check-runs/<id>/annotations), а подробная выжимка — в $GITHUB_STEP_SUMMARY.
 #
-# Порядок разбора важен: раньше аннотации заполнялись первыми же совпадениями
-# «error|FAIL» из журнала сборки, и главное — имя упавшего теста и текст
-# проверки — до них не доходило. Теперь сначала обрабатывается журнал, в
-# котором реально есть сводка тестов, и только потом остальные.
+# Аннотаций на проверку GitHub показывает немного, поэтому важен порядок:
+# сначала место падения теста (самотест печатает «ПРОВАЛ: …» и, при аварийном
+# завершении, секцию с адресом сбоя), затем хвост журнала упавшего теста,
+# затем имена упавших тестов и только в конце предупреждения компилятора.
+# Полный отфильтрованный текст по-прежнему уходит в сводку шага.
 #
 # Запускается только при падении шага; ничего не переписывает и всегда
 # завершается успешно.
@@ -19,23 +18,20 @@ set -u
 
 summary="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 shopt -s nullglob
-logs=(/tmp/*.log)
 
-# Маркеры, по которым видно упавший тест и причину проверки.
-test_marker='The following tests FAILED|ПРОВАЛ|ОШИБКА|error C[0-9]+|fatal error'
+# Журналы отдельных тестов идут первыми: в них виден последний заголовок секции
+# перед падением, тогда как ctest пишет все тесты в один файл.
+logs=(/tmp/selftest-*.log /tmp/selftest*.log /tmp/*.log)
+
+failure_marker='ПРОВАЛ|The following tests FAILED|ОШИБКА|error C[0-9]+|fatal error|LNK[0-9]+'
 generic_error='error|Error|ERROR|ошибка|Ошибка|FAILED|failed|FAIL'
 
-# Журналы упорядочиваются: сначала те, где есть сводка тестов, затем те, где
-# есть любые ошибки, затем остальные.
+# Основной журнал: тот, где есть сообщение о провале проверки или падении.
 primary=""
-secondaries=()
 for f in "${logs[@]}"; do
-    if grep -qE 'The following tests FAILED|ПРОВАЛ' "$f" 2>/dev/null; then
-        if [ -z "${primary}" ]; then primary="$f"; else secondaries+=("$f"); fi
-    elif grep -qE "${generic_error}" "$f" 2>/dev/null; then
-        secondaries+=("$f")
-    else
-        secondaries+=("$f")
+    if grep -qE 'ПРОВАЛ|The following tests FAILED' "$f" 2>/dev/null; then
+        primary="$f"
+        break
     fi
 done
 
@@ -50,14 +46,12 @@ done
         echo "### \`${f}\`"
         echo
         echo '```'
-        grep -nE "${test_marker}" "$f" 2>/dev/null | head -40 || true
-        grep -nE "${generic_error}" "$f" 2>/dev/null | head -40 || true
+        grep -nE "${failure_marker}" "$f" 2>/dev/null | head -30 || true
+        grep -nE "${generic_error}" "$f" 2>/dev/null | head -20 || true
         echo '```'
         echo
-        # Хвост журнала: у ошибок CMake/MSBuild причина часто лежит в строках,
-        # которые не содержат слов error/failed.
         echo '```'
-        tail -n 15 "$f" 2>/dev/null || true
+        tail -n 20 "$f" 2>/dev/null || true
         echo '```'
         echo
     done
@@ -73,73 +67,56 @@ emit() {
     emitted=$((emitted + 1))
 }
 
-# 1. Главное: на какой секции упал тест. Самотест печатает «=== Секция ===»
-# перед каждой группой проверок, поэтому последний заголовок в журнале — это
-# место падения, а строки перед сводкой ctest содержат вывод самого теста.
-if [ -n "${primary}" ]; then
-    while IFS= read -r line; do
-        emit "${line}"
-        [ "${emitted}" -ge 8 ] && break
-    done < <(grep -E '^=== |^Итог|^ПРОВАЛ' "${primary}" 2>/dev/null | tail -n 8 || true)
-
-    marker_line=$(grep -n 'Errors while running CTest' "${primary}" 2>/dev/null | head -1 | cut -d: -f1)
-    if [ -n "${marker_line}" ]; then
-        first=$((marker_line > 30 ? marker_line - 30 : 1))
-        while IFS= read -r line; do
-            emit "${line}"
-            [ "${emitted}" -ge 20 ] && break
-        done < <(sed -n "${first},${marker_line}p" "${primary}" 2>/dev/null || true)
-    fi
-fi
-
-# 2. Имя упавшего теста и строки проверок.
-if [ -n "${primary}" ]; then
-    while IFS= read -r line; do
-        emit "${line}"
-        [ "${emitted}" -ge 10 ] && exit 0
-    done < <(grep -E "${test_marker}" "${primary}" 2>/dev/null || true)
-fi
-
-# 3. Соседние строки вокруг сводки тестов: там перечислены сами тесты.
-for f in "${primary}" "${secondaries[@]}"; do
+# 1. Место падения: сообщения самотеста (в том числе от обработчика аварий,
+#    который печатает секцию и адрес сбоя) и имена упавших тестов.
+seen=""
+for f in "${primary}" "${logs[@]}"; do
     [ -z "${f}" ] && continue
+    [ "${f}" = "${seen}" ] && continue
+    seen="$f"
     while IFS= read -r line; do
         emit "${line}"
-        [ "${emitted}" -ge 16 ] && exit 0
-    done < <(grep -A 6 'The following tests FAILED' "$f" 2>/dev/null || true)
+        [ "${emitted}" -ge 6 ] && break 2
+    done < <(grep -E 'ПРОВАЛ|The following tests FAILED|^[[:space:]]+[0-9]+ - ' "$f" 2>/dev/null | tail -n 4 || true)
 done
 
-# 4. Прочие ошибки из журналов.
-for f in "${primary}" "${secondaries[@]}"; do
+# 2. Хвост журнала теста: последняя начатая секция = место сбоя. Если основной
+#    журнал — ctest (там все тесты вместе), хвосты берутся из отдельных прогонов.
+tails=0
+for f in "${primary}" /tmp/selftest-*.log; do
     [ -z "${f}" ] && continue
-    while IFS= read -r line; do
-        emit "${line}"
-        [ "${emitted}" -ge 24 ] && exit 0
-    done < <(grep -E "${generic_error}" "$f" 2>/dev/null || true)
-done
-
-# 5. Хвосты журналов целиком: причины вида «could not find any instance…».
-for f in "${primary}" "${secondaries[@]}"; do
-    [ -z "${f}" ] && continue
+    [ -f "${f}" ] || continue
+    [ "${emitted}" -ge 8 ] && break
     emit "--- хвост ${f} ---"
     while IFS= read -r line; do
         emit "${line}"
-        [ "${emitted}" -ge 32 ] && exit 0
-    done < <(tail -n 12 "$f" 2>/dev/null || true)
+        [ "${emitted}" -ge 8 ] && break 2
+    done < <(tail -n 5 "${f}" 2>/dev/null || true)
+    tails=$((tails + 1))
+    [ "${tails}" -ge 2 ] && break
 done
 
-# Отдельно выносим предупреждения: при /WX («предупреждения = ошибки») именно они
-# объясняют C2220, но в аннотации попадал только сам C2220 без текста.
+# 3. Ошибки компиляции/линковки, если шаг упал до тестов.
+if [ "${emitted}" -lt 8 ]; then
+    for f in "${logs[@]}"; do
+        while IFS= read -r line; do
+            emit "${line}"
+            [ "${emitted}" -ge 8 ] && break 2
+        done < <(grep -E 'error C[0-9]+|fatal error|LNK[0-9]+|CMake Error' "$f" 2>/dev/null | head -6 || true)
+    done
+fi
+
+# 4. Предупреждения: при /WX («предупреждения = ошибки») именно они объясняют
+#    C2220, но в аннотации раньше попадал только сам C2220 без текста.
 warned=0
-for f in "${primary}" "${secondaries[@]}"; do
-    [ -z "${f}" ] && continue
+for f in "${logs[@]}"; do
     while IFS= read -r line; do
         [ -z "${line}" ] && continue
         safe="${line//%/%25}"
         safe="${safe//$'\r'/}"
         echo "::warning::${safe}"
         warned=$((warned + 1))
-        if [ "${warned}" -ge 8 ]; then
+        if [ "${warned}" -ge 3 ]; then
             exit 0
         fi
     done < <(grep -E 'warning C[0-9]+|\[-W[a-z-]+\]' "$f" 2>/dev/null || true)
