@@ -41,11 +41,15 @@
   <Target Name="CopySteamNativeLibrary" AfterTargets="Build">
     <ItemGroup>
       <!-- Основной путь: точная папка пакета (GeneratePathProperty выше). -->
-      <!-- Основной путь: точная папка пакета (GeneratePathProperty выше). -->
-      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/content/steam_api64.dll" Condition="'$(PkgFacepunch_Steamworks)' != ''" />
-      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/content/steam_api.dll" Condition="'$(PkgFacepunch_Steamworks)' != ''" />
-      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/runtimes/win-x64/native/steam_api64.dll" Condition="'$(PkgFacepunch_Steamworks)' != ''" />
-      <!-- Запасной путь: любой файл с таким именем внутри пакета в кэше NuGet. -->
+      <!-- Основной путь: content/ внутри пакета (GeneratePathProperty выше).
+           Именно там лежит нативная библиотека; Exists() обязателен — Copy с
+           несуществующим путём падает MSB3030 (проверено на CI). -->
+      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/content/steam_api64.dll"
+                      Condition="'$(PkgFacepunch_Steamworks)' != '' And Exists('$(PkgFacepunch_Steamworks)/content/steam_api64.dll')" />
+      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/content/steam_api.dll"
+                      Condition="'$(PkgFacepunch_Steamworks)' != '' And Exists('$(PkgFacepunch_Steamworks)/content/steam_api.dll')" />
+      <!-- Запасной путь: любой файл с таким именем внутри пакета в кэше NuGet
+           (маска ничего не находит — это не ошибка). -->
       <SteamNativeLib Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api64.dll" />
       <SteamNativeLib Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api.dll" />
     </ItemGroup>
@@ -57,8 +61,8 @@
 
   <Target Name="CopySteamNativeLibraryToPublish" AfterTargets="Publish">
     <ItemGroup>
-      <SteamNativeLibPublish Include="$(PkgFacepunch_Steamworks)/content/steam_api64.dll" Condition="'$(PkgFacepunch_Steamworks)' != ''" />
-      <SteamNativeLibPublish Include="$(PkgFacepunch_Steamworks)/runtimes/win-x64/native/steam_api64.dll" Condition="'$(PkgFacepunch_Steamworks)' != ''" />
+      <SteamNativeLibPublish Include="$(PkgFacepunch_Steamworks)/content/steam_api64.dll"
+                             Condition="'$(PkgFacepunch_Steamworks)' != '' And Exists('$(PkgFacepunch_Steamworks)/content/steam_api64.dll')" />
       <SteamNativeLibPublish Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api64.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(SteamNativeLibPublish)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true"
