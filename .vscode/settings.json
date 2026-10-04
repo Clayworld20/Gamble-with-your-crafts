@@ -1,0 +1,17 @@
+{
+  "dotnet.defaultSolution": "GambleWithYourCrafts.sln",
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true,
+    "**/publish": true
+  },
+  "search.exclude": {
+    "**/bin": true,
+    "**/obj": true,
+    "**/ci": true
+  },
+  "files.encoding": "utf8",
+  "editor.formatOnSave": false,
+  "csharp.inlayHints.enableInlayHintsForParameters": true,
+  "omnisharp.enableEditorConfigSupport": true
+}

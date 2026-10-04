@@ -1,0 +1,114 @@
+# =============================================================================
+#  Проверки нативного моста: C++ ядро (Linux + Windows) и Fabric-мод (Java).
+#
+#  Linux   — тесты ядра: протокол, кольцо SPSC, RLE, воксели, сканер, хуки
+#            (теневой режим) и сквозной прогон C-ABI моста против второй стороны
+#            канала, играющей роль Minecraft. Плюс отдельный прогон под
+#            ThreadSanitizer: кольцо обязано быть без гонок.
+#  Windows — та же сборка компилятором MSVC с реальным MinHook: проверяется, что
+#            Windows-ветка кода (PE-секции, трамплины, DllMain) собирается.
+#  Mod     — компиляция Fabric-мода под Minecraft 1.20.1.
+# =============================================================================
+name: native-bridge
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'native/**'
+      - 'minecraft-mod/**'
+      - '.github/workflows/native-bridge.yml'
+  pull_request:
+    paths:
+      - 'native/**'
+      - 'minecraft-mod/**'
+      - '.github/workflows/native-bridge.yml'
+  workflow_dispatch:
+
+jobs:
+  core-linux:
+    name: Ядро C++ (Linux, тесты + TSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Конфигурация CMake
+        run: cmake -S native -B native/build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DGWYC_WERROR=ON 2>&1 | tee /tmp/cmake.log
+
+      - name: Сборка
+        run: cmake --build native/build --parallel 2>&1 | tee /tmp/build.log
+
+      - name: Тесты ядра (113 проверок)
+        run: ctest --test-dir native/build --output-on-failure 2>&1 | tee /tmp/ctest.log
+
+      - name: Проверка под ThreadSanitizer
+        run: |
+          cmake -S native -B native/build-tsan -DCMAKE_BUILD_TYPE=Debug \
+                -DCMAKE_CXX_FLAGS="-fsanitize=thread -g" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread" 2>&1 | tee /tmp/tsan-cmake.log
+          cmake --build native/build-tsan --parallel 2>&1 | tee /tmp/tsan-build.log
+          ./native/build-tsan/bin/gwyc_core_tests 2>&1 | tee /tmp/tsan-run.log
+
+      - name: Диагностика при сбое
+        if: failure()
+        run: bash .github/scripts/ci-diagnostics.sh
+
+  core-windows:
+    name: Ядро C++ (Windows, MSVC + MinHook)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Конфигурация CMake
+        run: cmake -S native -B native/build -DGWYC_WERROR=ON
+
+      - name: Сборка (Release, x64)
+        shell: bash
+        run: cmake --build native/build --config Release --parallel 2>&1 | tee /tmp/build.log
+
+      - name: Тесты ядра
+        shell: bash
+        run: ctest --test-dir native/build -C Release --output-on-failure 2>&1 | tee /tmp/ctest.log
+
+      - name: Диагностика при сбое
+        if: failure()
+        shell: bash
+        run: bash .github/scripts/ci-diagnostics.sh
+
+      - name: Артефакт — библиотека моста
+        uses: actions/upload-artifact@v4
+        with:
+          name: GWYFCraftsBridge-win-x64
+          path: |
+            native/build/bin/Release/GWYFCraftsBridge.dll
+            native/build/bin/Release/gwyc_core_tests.exe
+          if-no-files-found: error
+
+  fabric-mod:
+    name: Fabric-мод (Java 17, MC 1.20.1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Сборка мода
+        working-directory: minecraft-mod
+        run: gradle build --no-daemon --stacktrace 2>&1 | tee /tmp/mod-build.log
+
+      - name: Диагностика при сбое
+        if: failure()
+        run: bash .github/scripts/ci-diagnostics.sh
+
+      - name: Артефакт — jar мода
+        uses: actions/upload-artifact@v4
+        with:
+          name: gwyc-bridge-mod
+          path: minecraft-mod/build/libs/*.jar
+          if-no-files-found: error

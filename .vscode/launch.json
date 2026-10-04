@@ -1,0 +1,49 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Игра: создать лобби (для друзей)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/GambleWithYourCrafts/bin/Debug/net8.0/GambleWithYourCrafts.dll",
+      "args": ["--friends", "--max", "8"],
+      "cwd": "${workspaceFolder}/src/GambleWithYourCrafts",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Игра: публичное лобби",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/GambleWithYourCrafts/bin/Debug/net8.0/GambleWithYourCrafts.dll",
+      "args": ["--public"],
+      "cwd": "${workspaceFolder}/src/GambleWithYourCrafts",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Игра: одиночный режим (без лобби)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/GambleWithYourCrafts/bin/Debug/net8.0/GambleWithYourCrafts.dll",
+      "args": ["--sandbox"],
+      "cwd": "${workspaceFolder}/src/GambleWithYourCrafts",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Тесты логики (--selftest)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/GambleWithYourCrafts/bin/Debug/net8.0/GambleWithYourCrafts.dll",
+      "args": ["--selftest", "--no-color"],
+      "cwd": "${workspaceFolder}/src/GambleWithYourCrafts",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "gwyfbridge",
+  "version": "1.0.0",
+  "name": "GWYF Bridge",
+  "description": "Мост между Minecraft и Gamble With Your Friends: выигрыш в казино выдаёт блоки, а постройка в креативе появляется в игре живыми 3D-объектами.",
+  "authors": [
+    "Clayworld20"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.gwyfbridge.mc.GwyfBridgeMod"
+    ]
+  },
+  "mixins": [
+    {
+      "config": "gwyfbridge.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "fabric-api": "*",
+    "minecraft": "~1.20.1",
+    "java": ">=17"
+  }
+}

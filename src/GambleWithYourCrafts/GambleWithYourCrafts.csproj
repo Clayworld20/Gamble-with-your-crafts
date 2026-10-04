@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>GambleWithYourCrafts</AssemblyName>
+    <RootNamespace>GambleWithYourCrafts</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>Gamble With Your Crafts</Product>
+    <Description>Азартное казино и креативная воксельная стройка в одном приложении, сеть через Steam P2P (тестовый AppID 480).</Description>
+
+    <!-- Строгий режим: предупреждения ломают сборку, nullable включён. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+
+    <!-- CA1861: «не передавайте константные массивы в методы». В консольных командах
+         и тестах такие литералы — самый читаемый вариант, а горячих путей они не касаются. -->
+    <NoWarn>$(NoWarn);CA1861</NoWarn>
+
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <UseAppHost>true</UseAppHost>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Facepunch.Steamworks 2.3.3 — последняя версия, опубликованная в NuGet.
+         Внутри lib/netstandard2.0 Facepunch.Steamworks.Win64.dll + steam_api64.dll в content/.
+         GeneratePathProperty даёт $(PkgFacepunch_Steamworks) — точный путь к распакованному
+         пакету, по нему нативную библиотеку и забираем (glob по всему кэшу — запасной путь). -->
+    <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <!--
+    Пакет Facepunch.Steamworks кладёт нативный steam_api64.dll в content/,
+    который NuGet не копирует при PackageReference. Копируем сами — иначе Steam
+    не поднимется с ошибкой "Unable to load DLL 'steam_api64'".
+  -->
+  <Target Name="CopySteamNativeLibrary" AfterTargets="Build">
+    <ItemGroup>
+      <!-- Основной путь: точная папка пакета (GeneratePathProperty выше). -->
+      <!-- Основной путь: content/ внутри пакета (GeneratePathProperty выше).
+           Именно там лежит нативная библиотека; Exists() обязателен — Copy с
+           несуществующим путём падает MSB3030 (проверено на CI). -->
+      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/content/steam_api64.dll"
+                      Condition="'$(PkgFacepunch_Steamworks)' != '' And Exists('$(PkgFacepunch_Steamworks)/content/steam_api64.dll')" />
+      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/content/steam_api.dll"
+                      Condition="'$(PkgFacepunch_Steamworks)' != '' And Exists('$(PkgFacepunch_Steamworks)/content/steam_api.dll')" />
+      <!-- Запасной путь: любой файл с таким именем внутри пакета в кэше NuGet
+           (маска ничего не находит — это не ошибка). -->
+      <SteamNativeLib Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api64.dll" />
+      <SteamNativeLib Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SteamNativeLib)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true"
+          Condition="'@(SteamNativeLib)' != ''" />
+    <Warning Condition="'@(SteamNativeLib)' == ''"
+             Text="Не нашёл steam_api64.dll в пакете Facepunch.Steamworks. Точный путь пакета: '$(PkgFacepunch_Steamworks)', кэш NuGet: '$(NuGetPackageRoot)'. Скопируйте библиотеку рядом с exe вручную (см. README, раздел про Steam)." />
+  </Target>
+
+  <Target Name="CopySteamNativeLibraryToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <SteamNativeLibPublish Include="$(PkgFacepunch_Steamworks)/content/steam_api64.dll"
+                             Condition="'$(PkgFacepunch_Steamworks)' != '' And Exists('$(PkgFacepunch_Steamworks)/content/steam_api64.dll')" />
+      <SteamNativeLibPublish Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api64.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SteamNativeLibPublish)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true"
+          Condition="'@(SteamNativeLibPublish)' != ''" />
+    <Warning Condition="'@(SteamNativeLibPublish)' == ''"
+             Text="steam_api64.dll не найден в пакете Facepunch.Steamworks — однофайловая сборка останется без нативной библиотеки Steam." />
+  </Target>
+
+</Project>

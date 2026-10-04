@@ -1,0 +1,57 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Toolchain
+        run: dotnet --info 2>&1 | tee /tmp/toolchain.log
+
+      - name: Restore
+        run: dotnet restore GambleWithYourCrafts.sln 2>&1 | tee /tmp/restore.log
+
+      - name: Build (Release, warnings as errors)
+        run: dotnet build GambleWithYourCrafts.sln -c Release --no-restore 2>&1 | tee /tmp/build.log
+
+      - name: Logic self-tests (no Steam required)
+        run: dotnet run --project src/GambleWithYourCrafts -c Release --no-build -- --selftest --no-color 2>&1 | tee /tmp/selftest.log
+
+      - name: Publish single-file exe (win-x64)
+        run: dotnet publish src/GambleWithYourCrafts -c Release -r win-x64 -p:PublishSingleFile=true --self-contained false -o publish/win-x64 2>&1 | tee /tmp/publish.log
+
+      - name: Check the Steam native library shipped next to the exe
+        run: |
+          set -e
+          ls -la publish/win-x64
+          test -f publish/win-x64/GambleWithYourCrafts.exe
+          if [ ! -f publish/win-x64/steam_api64.dll ]; then
+            # Диагностика прямо в аннотациях: журналы Azure из песочницы недоступны.
+            echo "::error::steam_api64.dll не попал рядом с exe. Что есть в пакете Facepunch.Steamworks:"
+            pkg_root="${NUGET_PACKAGES:-$HOME/.nuget/packages}"
+            find "$pkg_root/facepunch.steamworks" -maxdepth 5 -type f 2>/dev/null | head -30 | while read -r line; do
+              echo "::error::  $line"
+            done
+            echo "::error::Содержимое папки публикации:"
+            find publish/win-x64 -maxdepth 1 2>/dev/null | head -20 | while read -r line; do
+              echo "::error::  $line"
+            done
+            exit 1
+          fi
+
+      - name: Диагностика при сбое
+        if: failure()
+        run: bash .github/scripts/ci-diagnostics.sh
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: GambleWithYourCrafts-win-x64
+          path: publish/win-x64/
+          if-no-files-found: error

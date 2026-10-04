@@ -1,0 +1,58 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "run: одно лобби",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["run", "--project", "${workspaceFolder}/src/GambleWithYourCrafts", "--", "--host"],
+      "problemMatcher": []
+    },
+    {
+      "label": "run: тесты логики",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["run", "--project", "${workspaceFolder}/src/GambleWithYourCrafts", "--", "--selftest"],
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "publish: win-x64 (один exe)",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "publish",
+        "${workspaceFolder}/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj",
+        "-c",
+        "Release",
+        "-r",
+        "win-x64",
+        "-p:PublishSingleFile=true",
+        "--self-contained",
+        "false",
+        "-o",
+        "${workspaceFolder}/publish/win-x64"
+      ],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+// ============================================================================
+//  build.gradle — сборка Fabric-мода «GWYF Bridge».
+//
+//  ОСОБЕННОСТЬ ЭТОГО ПРОЕКТА: у мода есть нативная часть (C++), поэтому
+//  задача copyNativeLib переносит уже собранную gwyf_native_bridge.dll внутрь
+//  jar. Если её нет — сборка мода продолжается, но при запуске мод сообщит
+//  об отсутствии библиотеки (см. GwyfBridgeMod.openBridge).
+//
+//  Порядок сборки:
+//    1) CMake/Visual Studio: нативная часть (см. native-injection/CMakeLists.txt);
+//    2) gradle build: мод; готовый jar кладётся в mod/build/libs/.
+// ============================================================================
+
+plugins {
+    id 'fabric-loom' version '1.7-SNAPSHOT'
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+}
+
+processResources {
+    inputs.property 'version', project.version
+
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
+}
+
+// Нативная библиотека: подкладываем её в jar, если она уже собрана.
+tasks.register('copyNativeLib', Copy) {
+    def candidates = [
+            // CMake + Visual Studio (многоконфигурационный генератор): build/Release/…
+            file("${projectDir}/../build/Release/gwyf_native_bridge.dll"),
+            // CMake + Ninja/Makefile: build/…
+            file("${projectDir}/../build/gwyf_native_bridge.dll"),
+            // Раскладка «windows/x64/Release» — если сборка шла вложенным каталогом.
+            file("${projectDir}/../build/windows/x64/Release/gwyf_native_bridge.dll"),
+            // Ручная укладка рядом с модом.
+            file("${projectDir}/native/gwyf_native_bridge.dll")
+    ]
+    def source = candidates.find { it.exists() }
+
+    if (source != null) {
+        from source
+        into layout.buildDirectory.dir('resources/main')
+        rename { 'gwyf_native_bridge.dll' }
+    } else {
+        logger.lifecycle('GWYF Bridge: gwyf_native_bridge.dll не найдена рядом со сборкой мода — ' +
+                'мод соберётся, но нативный мост нужно положить в config/gwyfbridge вручную.')
+    }
+}
+
+processResources.dependsOn copyNativeLib
+jar.dependsOn copyNativeLib
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 17
+    it.options.encoding = 'UTF-8'
+}
+
+jar {
+    from('LICENSE') {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}

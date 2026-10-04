@@ -1,0 +1,49 @@
+# --- .NET ---
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+.vs/
+artifacts/
+publish/
+
+# --- VS Code (keep the shared config we ship, ignore local state) ---
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# --- Steam / runtime artefacts ---
+*.dll.bak
+steam_appid.txt
+logs/
+*.log
+.steam/
+crashdumps/
+
+# --- Сборка нативного моста (CMake) ---
+native/build/
+native/build-*/
+native/out/
+# --- Сборка инъекционного модуля (CMake / Gradle) ---
+native-injection/build/
+native-injection/build-*/
+native-injection/out/
+native-injection/mod/build/
+native-injection/mod/.gradle/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# --- Сборка Fabric-мода (Gradle / Loom) ---
+minecraft-mod/build/
+minecraft-mod/.gradle/
+.gradle/
+run/
+
+# --- OS noise ---
+.DS_Store
+Thumbs.db
