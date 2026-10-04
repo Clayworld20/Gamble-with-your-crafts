@@ -15,7 +15,10 @@
 #   endif
 #   include <windows.h>
 #   include <tlhelp32.h>
-#   pragma comment(lib, "psapi.lib")
+#   if defined(_MSC_VER)
+        // MSVC: подтянуть psapi.lib для EnumProcessModules/GetModuleInformation.
+#       pragma comment(lib, "psapi.lib")
+#   endif
 #else
 #   include <dlfcn.h>
 #   include <link.h>
@@ -60,8 +63,13 @@ int ClaimCounterSlot(const char* name) noexcept
 {
     for (int i = 0; i < static_cast<int>(kMaxCounters); ++i) {
         if (g_counters[i].name[0] != '\0') continue;
-        std::strncpy(g_counters[i].name, name, sizeof(Counter::name) - 1);
-        g_counters[i].name[sizeof(Counter::name) - 1] = '\0';
+        // Копируем вручную: strncpy в MSVC помечен как небезопасный (C4996),
+        // а сборка идёт с /W4 /WX — предупреждение стало бы ошибкой.
+        const std::size_t limit = sizeof(Counter::name) - 1;
+        std::size_t length = 0;
+        while (length < limit && name[length] != '\0') ++length;
+        std::memcpy(g_counters[i].name, name, length);
+        g_counters[i].name[length] = '\0';
         return i;
     }
     return -1;

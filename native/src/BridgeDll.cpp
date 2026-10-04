@@ -391,9 +391,13 @@ void DrainOutboundDirect()
 
     for (const OutgoingMessage& message : batch) {
         if (g_state.transport == nullptr) break;
-        g_state.transport->Send(message.type, message.flags,
-                                message.payload.empty() ? nullptr : message.payload.data(),
-                                static_cast<uint32_t>(message.payload.size()));
+        // Send помечен nodiscard: результат обязан быть использован (иначе MSVC
+        // ругается C4834, а сборка идёт с /WX). Считаем доставленное так же,
+        // как рабочий поток.
+        const bool sent = g_state.transport->Send(message.type, message.flags,
+                                                  message.payload.empty() ? nullptr : message.payload.data(),
+                                                  static_cast<uint32_t>(message.payload.size()));
+        if (sent) g_state.messagesSent.fetch_add(1, std::memory_order_relaxed);
     }
 }
 

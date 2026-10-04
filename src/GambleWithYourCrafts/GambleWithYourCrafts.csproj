@@ -27,8 +27,10 @@
 
   <ItemGroup>
     <!-- Facepunch.Steamworks 2.3.3 — последняя версия, опубликованная в NuGet.
-         Внутри lib/netstandard2.0 Facepunch.Steamworks.Win64.dll + steam_api64.dll в content/. -->
-    <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" />
+         Внутри lib/netstandard2.0 Facepunch.Steamworks.Win64.dll + steam_api64.dll в content/.
+         GeneratePathProperty даёт $(PkgFacepunch_Steamworks) — точный путь к распакованному
+         пакету, по нему нативную библиотеку и забираем (glob по всему кэшу — запасной путь). -->
+    <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" GeneratePathProperty="true" />
   </ItemGroup>
 
   <!--
@@ -38,19 +40,30 @@
   -->
   <Target Name="CopySteamNativeLibrary" AfterTargets="Build">
     <ItemGroup>
+      <!-- Основной путь: точная папка пакета (GeneratePathProperty выше). -->
+      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/**/steam_api64.dll" />
+      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/**/steam_api.dll" />
+      <!-- Запасной путь: на случай другой версии/раскладки в кэше NuGet. -->
       <SteamNativeLib Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api64.dll" />
       <SteamNativeLib Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api.dll" />
+      <SteamNativeLib Include="@(SteamNativeLib->Distinct())" />
     </ItemGroup>
-    <Copy SourceFiles="@(SteamNativeLib)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Condition="'@(SteamNativeLib)' != ''" />
+    <Copy SourceFiles="@(SteamNativeLib)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true"
+          Condition="'@(SteamNativeLib)' != ''" />
     <Warning Condition="'@(SteamNativeLib)' == ''"
-             Text="Не нашёл steam_api64.dll в пакете Facepunch.Steamworks. Скопируйте нативную библиотеку рядом с exe вручную (см. README, раздел про Steam)." />
+             Text="Не нашёл steam_api64.dll в пакете Facepunch.Steamworks (искал в $(PkgFacepunch_Steamworks) и $(NuGetPackageRoot)facepunch.steamworks). Скопируйте нативную библиотеку рядом с exe вручную (см. README, раздел про Steam)." />
   </Target>
 
   <Target Name="CopySteamNativeLibraryToPublish" AfterTargets="Publish">
     <ItemGroup>
+      <SteamNativeLibPublish Include="$(PkgFacepunch_Steamworks)/**/steam_api64.dll" />
       <SteamNativeLibPublish Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api64.dll" />
+      <SteamNativeLibPublish Include="@(SteamNativeLibPublish->Distinct())" />
     </ItemGroup>
-    <Copy SourceFiles="@(SteamNativeLibPublish)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" Condition="'@(SteamNativeLibPublish)' != ''" />
+    <Copy SourceFiles="@(SteamNativeLibPublish)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true"
+          Condition="'@(SteamNativeLibPublish)' != ''" />
+    <Warning Condition="'@(SteamNativeLibPublish)' == ''"
+             Text="steam_api64.dll не найден в пакете Facepunch.Steamworks — однофайловая сборка останется без нативной библиотеки Steam." />
   </Target>
 
 </Project>

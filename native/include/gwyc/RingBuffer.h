@@ -33,7 +33,14 @@ struct RingControlBlock {
     uint32_t reserved;
 };
 
-static_assert(std::is_trivially_copyable_v<RingControlBlock>, "RingControlBlock должен быть POD");
+// std::is_trivially_copyable здесь не годится: std::atomic удаляет копирование,
+// а реализация atomic в MSVC и вовсе не тривиально копируемая. Проверяем то,
+// что действительно важно для разделяемой памяти: одинаковая раскладка
+// (20 байт) и отсутствие скрытых блокировок у счётчиков.
+static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t),
+              "std::atomic<uint32_t> обязан занимать ровно 4 байта — иначе раскладка у сторон разная");
+static_assert(std::atomic<uint32_t>::is_always_lock_free,
+              "счётчики кольца обязаны быть без блокировок: буфер читает чужой процесс");
 static_assert(sizeof(RingControlBlock) == 20, "RingControlBlock должен занимать 20 байт во всех процессах");
 
 /// Кольцо байт поверх уже выделенной памяти (см. SharedChannel: он её мапит).

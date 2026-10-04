@@ -56,7 +56,6 @@ public final class BlockMap {
         BLOCK_TO_KIND.putIfAbsent(Blocks.OAK_LOG, WOOD);
         BLOCK_TO_KIND.putIfAbsent(Blocks.SPRUCE_PLANKS, WOOD);
         BLOCK_TO_KIND.putIfAbsent(Blocks.BIRCH_PLANKS, WOOD);
-        BLOCK_TO_KIND.putIfAbsent(Blocks.OAK_CRAFTING_TABLE, TABLE);
         BLOCK_TO_KIND.putIfAbsent(Blocks.GLOWSTONE, LAMP);
     }
 

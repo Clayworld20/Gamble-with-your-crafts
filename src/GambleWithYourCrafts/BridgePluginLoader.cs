@@ -257,27 +257,28 @@ public static class BridgePluginLoader
         private IntPtr _callbacksBlock;
         private bool _initialized;
 
-        private BridgePlugin(IntPtr library, GwycBridgeConfig config)
+        /// <summary>Создаётся только из <see cref="BridgePluginLoader.Load"/>.</summary>
+        internal BridgePlugin(IntPtr library, GwycBridgeConfig config)
         {
             _library = library;
             _config = config;
 
-            _getAbiVersion = Bind<uint>("GwycBridge_GetAbiVersion");
+            _getAbiVersion = Bind<Func<uint>>("GwycBridge_GetAbiVersion");
             _getBuildTag = BindString("GwycBridge_GetBuildTag");
-            _initialize = Bind<IntPtr, IntPtr, GwycStatus>("GwycBridge_Initialize");
-            _shutdown = Bind<GwycStatus>("GwycBridge_Shutdown");
-            _tick = Bind<GwycStatus>("GwycBridge_Tick");
-            _publishVoxelEdit = Bind<IntPtr, GwycStatus>("GwycBridge_PublishVoxelEdit");
-            _publishBetPlaced = Bind<IntPtr, GwycStatus>("GwycBridge_PublishBetPlaced");
-            _publishBetResolved = Bind<IntPtr, GwycStatus>("GwycBridge_PublishBetResolved");
-            _publishTableEvent = Bind<IntPtr, GwycStatus>("GwycBridge_PublishTableEvent");
-            _publishPlayerState = Bind<IntPtr, GwycStatus>("GwycBridge_PublishPlayerState");
-            _publishChat = Bind<IntPtr, GwycStatus>("GwycBridge_PublishChat");
-            _getStats = Bind<IntPtr, GwycStatus>("GwycBridge_GetStats");
-            _installHooks = Bind<IntPtr, IntPtr, GwycStatus>("GwycBridge_InstallCasinoHooks");
-            _removeHooks = Bind<GwycStatus>("GwycBridge_RemoveCasinoHooks");
-            _getHookCounters = Bind<IntPtr, IntPtr, GwycStatus>("GwycBridge_GetHookCounters");
-            _requestSnapshot = Bind<int, int, int, ushort, ushort, ushort, GwycStatus>("GwycBridge_RequestRegionSnapshot");
+            _initialize = Bind<Func<IntPtr, IntPtr, GwycStatus>>("GwycBridge_Initialize");
+            _shutdown = Bind<Func<GwycStatus>>("GwycBridge_Shutdown");
+            _tick = Bind<Func<GwycStatus>>("GwycBridge_Tick");
+            _publishVoxelEdit = Bind<Func<IntPtr, GwycStatus>>("GwycBridge_PublishVoxelEdit");
+            _publishBetPlaced = Bind<Func<IntPtr, GwycStatus>>("GwycBridge_PublishBetPlaced");
+            _publishBetResolved = Bind<Func<IntPtr, GwycStatus>>("GwycBridge_PublishBetResolved");
+            _publishTableEvent = Bind<Func<IntPtr, GwycStatus>>("GwycBridge_PublishTableEvent");
+            _publishPlayerState = Bind<Func<IntPtr, GwycStatus>>("GwycBridge_PublishPlayerState");
+            _publishChat = Bind<Func<IntPtr, GwycStatus>>("GwycBridge_PublishChat");
+            _getStats = Bind<Func<IntPtr, GwycStatus>>("GwycBridge_GetStats");
+            _installHooks = Bind<Func<IntPtr, IntPtr, GwycStatus>>("GwycBridge_InstallCasinoHooks");
+            _removeHooks = Bind<Func<GwycStatus>>("GwycBridge_RemoveCasinoHooks");
+            _getHookCounters = Bind<Func<IntPtr, IntPtr, GwycStatus>>("GwycBridge_GetHookCounters");
+            _requestSnapshot = Bind<Func<int, int, int, ushort, ushort, ushort, GwycStatus>>("GwycBridge_RequestRegionSnapshot");
         }
 
         public string BuildTag => _getBuildTag();
