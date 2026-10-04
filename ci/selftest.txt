@@ -1,9 +1,107 @@
-/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/SelfTest.cs(20,9): error CS0176: Member 'TestRunner.Section(string)' cannot be accessed with an instance reference; qualify it with a type name instead [/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj]
-/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/SelfTest.cs(24,9): error CS0176: Member 'TestRunner.Section(string)' cannot be accessed with an instance reference; qualify it with a type name instead [/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj]
-/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/SelfTest.cs(27,9): error CS0176: Member 'TestRunner.Section(string)' cannot be accessed with an instance reference; qualify it with a type name instead [/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj]
-/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/SelfTest.cs(33,9): error CS0176: Member 'TestRunner.Section(string)' cannot be accessed with an instance reference; qualify it with a type name instead [/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj]
-/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/SelfTest.cs(36,9): error CS0176: Member 'TestRunner.Section(string)' cannot be accessed with an instance reference; qualify it with a type name instead [/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj]
-/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/SelfTest.cs(40,9): error CS0176: Member 'TestRunner.Section(string)' cannot be accessed with an instance reference; qualify it with a type name instead [/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj]
-/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/SelfTest.cs(253,26): error CA1806: TestVoxelGrid creates a new instance of VoxelGrid which is never used. Pass the instance as an argument to another method, assign the instance to a variable, or remove the object creation if it is unnecessary. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1806) [/home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj]
 
-The build failed. Fix the build errors and run again.
+── Протокол: сериализация сообщений ──
+  [ ok ] сериализация Hello не пустая и влезает в пакет (30 байт)
+  [ ok ] Hello: тип после разбора (Hello)
+  [ ok ] Hello: данные совпадают после round-trip (было 30 байт, стало 30; типы Hello/Hello)
+  [ ok ] сериализация Chat не пустая и влезает в пакет (67 байт)
+  [ ok ] Chat: тип после разбора (Chat)
+  [ ok ] Chat: данные совпадают после round-trip (было 67 байт, стало 67; типы Chat/Chat)
+  [ ok ] сериализация Ping не пустая и влезает в пакет (12 байт)
+  [ ok ] Ping: тип после разбора (Ping)
+  [ ok ] Ping: данные совпадают после round-trip (было 12 байт, стало 12; типы Ping/Ping)
+  [ ok ] сериализация Pong не пустая и влезает в пакет (20 байт)
+  [ ok ] Pong: тип после разбора (Pong)
+  [ ok ] Pong: данные совпадают после round-trip (было 20 байт, стало 20; типы Pong/Pong)
+  [FAIL] сериализация SyncRequest не пустая и влезает в пакет — 4 байт
+  [ ok ] SyncRequest: тип после разбора (SyncRequest)
+  [ ok ] SyncRequest: данные совпадают после round-trip (было 4 байт, стало 4; типы SyncRequest/SyncRequest)
+  [ ok ] сериализация Presence не пустая и влезает в пакет (34 байт)
+  [ ok ] Presence: тип после разбора (Presence)
+  [ ok ] Presence: данные совпадают после round-trip (было 34 байт, стало 34; типы Presence/Presence)
+  [ ok ] сериализация VoxelEdit не пустая и влезает в пакет (25 байт)
+  [ ok ] VoxelEdit: тип после разбора (VoxelEdit)
+  [ ok ] VoxelEdit: данные совпадают после round-trip (было 25 байт, стало 25; типы VoxelEdit/VoxelEdit)
+  [ ok ] сериализация VoxelBatch не пустая и влезает в пакет (33 байт)
+  [ ok ] VoxelBatch: тип после разбора (VoxelBatch)
+  [ ok ] VoxelBatch: данные совпадают после round-trip (было 33 байт, стало 33; типы VoxelBatch/VoxelBatch)
+  [ ok ] сериализация VoxelSnapshot не пустая и влезает в пакет (20 байт)
+  [ ok ] VoxelSnapshot: тип после разбора (VoxelSnapshot)
+  [ ok ] VoxelSnapshot: данные совпадают после round-trip (было 20 байт, стало 20; типы VoxelSnapshot/VoxelSnapshot)
+  [ ok ] сериализация InventorySync не пустая и влезает в пакет (47 байт)
+  [ ok ] InventorySync: тип после разбора (InventorySync)
+  [ ok ] InventorySync: данные совпадают после round-trip (было 47 байт, стало 47; типы InventorySync/InventorySync)
+  [ ok ] сериализация BlockRequest не пустая и влезает в пакет (8 байт)
+  [ ok ] BlockRequest: тип после разбора (BlockRequest)
+  [ ok ] BlockRequest: данные совпадают после round-trip (было 8 байт, стало 8; типы BlockRequest/BlockRequest)
+  [ ok ] сериализация FillRequest не пустая и влезает в пакет (11 байт)
+  [ ok ] FillRequest: тип после разбора (FillRequest)
+  [ ok ] FillRequest: данные совпадают после round-trip (было 11 байт, стало 11; типы FillRequest/FillRequest)
+  [ ok ] сериализация CraftRequest не пустая и влезает в пакет (5 байт)
+  [ ok ] CraftRequest: тип после разбора (CraftRequest)
+  [ ok ] CraftRequest: данные совпадают после round-trip (было 5 байт, стало 5; типы CraftRequest/CraftRequest)
+  [ ok ] сериализация CasinoBetRequest не пустая и влезает в пакет (15 байт)
+  [ ok ] CasinoBetRequest: тип после разбора (CasinoBetRequest)
+  [ ok ] CasinoBetRequest: данные совпадают после round-trip (было 15 байт, стало 15; типы CasinoBetRequest/CasinoBetRequest)
+  [ ok ] сериализация CasinoResult не пустая и влезает в пакет (62 байт)
+  [ ok ] CasinoResult: тип после разбора (CasinoResult)
+  [ ok ] CasinoResult: данные совпадают после round-trip (было 62 байт, стало 62; типы CasinoResult/CasinoResult)
+  [ ok ] сериализация Bye не пустая и влезает в пакет (24 байт)
+  [ ok ] Bye: тип после разбора (Bye)
+  [ ok ] Bye: данные совпадают после round-trip (было 24 байт, стало 24; типы Bye/Bye)
+  [ ok ] мусор вместо заголовка отброшен
+  [ ok ] пустой пакет отброшен
+  [ ok ] чужая сигнатура отброшена
+  [ ok ] несовпадающая версия протокола отброшена
+  [ ok ] неизвестный тип сообщения отброшен
+  [ ok ] обрезанный пакет отброшен
+  [ ok ] слишком длинная строка отброшена
+  [ ok ] бредовый размер мира в снимке отброшен
+
+── Протокол: сборка фрагментов ──
+  [ ok ] количество фрагментов больше одного (3)
+  [ ok ] фрагменты собраны после перемешивания
+  [ ok ] собранный буфер совпадает с исходным
+  [ ok ] незавершённая передача не теряется до таймаута
+  [ ok ] потерянный фрагмент не склеивается с новым (после Prune) (передача перезапущена)
+  [ ok ] индекс за пределами передачи отброшен
+
+── Воксели: сетка и сжатие ──
+  [ ok ] размеры сетки
+  [ ok ] пустой мир
+  [ ok ] запись блока меняет версию
+  [ ok ] чтение блока
+  [ ok ] повторная запись того же блока — не изменение
+  [ ok ] запись за границей игнорируется
+  [ ok ] чтение за границей даёт воздух
+  [ ok ] границы
+  [ ok ] верхний блок колонки
+  [ ok ] пустая колонка
+  [ ok ] подсчёт непустых вокселей (3)
+  [ ok ] экспорт/импорт совпадает
+  [ ok ] несовпадающий размер снимка отброшен
+  [ ok ] слишком большой мир отвергается
+  [ ok ] Resize в допустимых границах
+  [ ok ] Resize в бредовые значения отвергается
+  [ ok ] перечисленный воксель 5,0,5 не пустой
+  [ ok ] перечисленный воксель 1,2,3 не пустой
+  [ ok ] перечисленный воксель 5,4,5 не пустой
+  [ ok ] перебор непустых вокселей совпадает с подсчётом
+  [ ok ] RLE пустой мир: совпадение (3 байт)
+  [ ok ] RLE пустой мир: сжатие работает (3 из 2000)
+  [ ok ] RLE сплошной мир: совпадение (3 байт)
+  [ ok ] RLE сплошной мир: сжатие работает (3 из 2000)
+  [ ok ] RLE шахматка: совпадение (4000 байт)
+  [ ok ] RLE случайный: совпадение (3572 байт)
+  [ ok ] неполный RLE-поток отброшен
+  [ ok ] нулевая серия в RLE отброшена
+  [ ok ] RLE больше заявленного размера отброшен
+  [ ok ] отрицательный размер мира отброшен
+  [ ok ] пакет правок: количество (3)
+  [ ok ] пакет правок: координаты и блоки
+Unhandled exception. GambleWithYourCrafts.ProtocolException: Массив выходит за границы пакета.
+   at GambleWithYourCrafts.PacketReader.ReadBytes() in /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/NetProtocol.cs:line 301
+   at GambleWithYourCrafts.VoxelBatchMessage.ReadBody(PacketReader reader) in /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/NetProtocol.cs:line 584
+   at GambleWithYourCrafts.NetMessage.Deserialize(Byte[] data) in /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/NetProtocol.cs:line 365
+   at GambleWithYourCrafts.SelfTest.TestEditBatchCodec(TestRunner runner) in /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/SelfTest.cs:line 347
+   at GambleWithYourCrafts.SelfTest.RunAll() in /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/SelfTest.cs:line 30
+   at GambleWithYourCrafts.Program.Main(String[] args) in /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/Program.cs:line 28
