@@ -148,17 +148,13 @@ bool FindModule(const char* nameSubstring, ModuleInfo& out) {
         modules.push_back(buffer[index]);
     }
 
-    std::string needle = nameSubstring;
-    std::transform(needle.begin(), needle.end(), needle.begin(),
-                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    const std::string needle = ToLowerAscii(nameSubstring);
 
     for (HMODULE module : modules) {
         char path[MAX_PATH]{};
         if (GetModuleFileNameA(module, path, MAX_PATH) == 0) continue;
 
-        std::string lower = path;
-        std::transform(lower.begin(), lower.end(), lower.begin(),
-                       [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        const std::string lower = ToLowerAscii(path);
 
         if (lower.find(needle) == std::string::npos) continue;
 

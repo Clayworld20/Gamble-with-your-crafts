@@ -33,6 +33,23 @@
 
 namespace gwyf {
 
+/// Нижний регистр для ASCII (имена модулей, классов, ключи профиля).
+///
+/// Своя реализация, а не std::transform + std::tolower: та тянет <algorithm> и
+/// <cctype>, зависит от локали, а в MSVC на сужающем преобразовании ещё и выдаёт
+/// предупреждение внутри заголовков стандартной библиотеки — при /WX это ошибка
+/// сборки (проверено на CI). Здесь поведение одинаково на всех платформах.
+[[nodiscard]] inline std::string ToLowerAscii(std::string_view text)
+{
+    std::string result(text);
+    for (char& ch : result) {
+        if (ch >= 'A' && ch <= 'Z') {
+            ch = static_cast<char>(ch - 'A' + 'a');
+        }
+    }
+    return result;
+}
+
 // ── Базовые типы ────────────────────────────────────────────────────────────
 
 using u8 = std::uint8_t;

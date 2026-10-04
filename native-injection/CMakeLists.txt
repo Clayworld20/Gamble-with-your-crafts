@@ -76,7 +76,11 @@ function(gwyf_set_common_flags target)
     )
 
     if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /permissive- /utf-8 /MP /wd4100)
+        # /W4 /WX — к нашему коду. Заголовки стандартной библиотеки помечаем
+        # внешними: их собственные предупреждения (например xutility на шаблонах)
+        # не должны валить сборку проекта.
+        target_compile_options(${target} PRIVATE /W4 /permissive- /utf-8 /MP /wd4100
+                                                /external:anglebrackets /external:W0)
         target_compile_definitions(${target} PRIVATE _CRT_SECURE_NO_WARNINGS UNICODE _UNICODE)
         if(GWYF_WARNINGS_AS_ERRORS)
             target_compile_options(${target} PRIVATE /WX)

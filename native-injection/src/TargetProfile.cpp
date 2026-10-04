@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <utility>
 #include <sstream>
 
 namespace gwyf::profile {
@@ -23,10 +24,9 @@ std::string Trim(const std::string& text) {
 }
 
 std::string Lower(const std::string& text) {
-    std::string result = text;
-    std::transform(result.begin(), result.end(), result.begin(),
-                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-    return result;
+    // Единая реализация из Base.h: без <algorithm>/<cctype> и без предупреждений
+    // STL, которые в MSVC при /WX становятся ошибкой.
+    return ToLowerAscii(text);
 }
 
 std::vector<std::string> Split(const std::string& text, char delimiter) {

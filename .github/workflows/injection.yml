@@ -119,6 +119,11 @@ jobs:
           cmake -S native-injection -B native-injection/build -DCMAKE_BUILD_TYPE=Release 2>&1 | tee /tmp/cmake.log
           cmake --build native-injection/build --parallel 2>&1 | tee /tmp/build.log
 
+      # libstdc++ подтягивает заголовки транзитивно, MSVC — нет: именно так CI
+      # ловил std::transform без <algorithm>. Проверяем до сборки на Windows.
+      - name: Проверить, что все средства std::* подключены явно (MSVC не прощает)
+        run: python3 native-injection/tools/check_includes.py 2>&1 | tee /tmp/includes.log
+
       - name: Прогнать самотест (ABI, кольца, воксели, профиль)
         run: ctest --test-dir native-injection/build --output-on-failure 2>&1 | tee /tmp/ctest.log
 

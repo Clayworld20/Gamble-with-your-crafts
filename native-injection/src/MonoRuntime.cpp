@@ -4,6 +4,7 @@
 #include "gwyfbridge/MonoRuntime.h"
 
 #include <algorithm>
+#include <utility>
 #include <cstdio>
 
 namespace gwyf::mono {
@@ -253,9 +254,7 @@ void* FindImage(const char* assemblyName) {
     g_assemblyScratch.clear();
     g_api.assembly_foreach(&CollectAssembly, nullptr);
 
-    std::string wanted = assemblyName;
-    std::transform(wanted.begin(), wanted.end(), wanted.begin(),
-                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    const std::string wanted = ToLowerAscii(assemblyName);
 
     for (void* assembly : g_assemblyScratch) {
         void* image = g_api.assembly_get_image(assembly);
@@ -265,9 +264,7 @@ void* FindImage(const char* assemblyName) {
         const char* name = g_api.image_get_name(image);
         if (name == nullptr) continue;
 
-        std::string lower = name;
-        std::transform(lower.begin(), lower.end(), lower.begin(),
-                       [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        const std::string lower = ToLowerAscii(name);
 
         // Имя образа приходит без расширения ("Assembly-CSharp").
         if (lower.find(wanted) != std::string::npos) return image;
