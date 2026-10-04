@@ -42,7 +42,8 @@ Friends* (Unity/Mono) и *Minecraft Java Edition* (Fabric-мод). Выигры�
 ```powershell
 # 1. Нативная часть: настраиваем CMake под VS 2022 и собираем
 cd native
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+# Visual Studio берётся установленная: 17 2022 или 18 2026
+cmake -S . -B build -A x64
 cmake --build build --config Release
 
 # 2. Самотест (включая интеграционный прогон с синтетическим хостом)

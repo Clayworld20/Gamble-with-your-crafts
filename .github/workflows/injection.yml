@@ -49,10 +49,13 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Настроить CMake (Visual Studio 2022, x64)
+      # Генератор не пиним: у GitHub раннеры с Visual Studio 17 и 18, и жёсткое
+      # «-G "Visual Studio 17 2022"» падает с «could not find any instance of
+      # Visual Studio». Без -G CMake берёт новейший установленный.
+      - name: Настроить CMake (Visual Studio, x64)
         shell: bash
         run: |
-          cmake -S native-injection -B native-injection/build -G "Visual Studio 17 2022" -A x64 2>&1 | tee /tmp/cmake.log
+          cmake -S native-injection -B native-injection/build 2>&1 | tee /tmp/cmake.log
 
       - name: Собрать Release
         shell: bash

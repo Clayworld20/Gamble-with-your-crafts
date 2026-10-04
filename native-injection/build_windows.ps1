@@ -24,18 +24,36 @@ if (-not $cmake) {
     Write-Error "CMake не найден в PATH. Установите CMake или используйте Visual Studio (File → Open → Folder)."
 }
 
-$arguments = @("-S", "$PSScriptRoot", "-B", $BuildDir, "-G", "Visual Studio 17 2022", "-A", "x64")
-
+$extra = @()
 if ($NoTests) {
-    $arguments += "-DGWYF_BUILD_TESTS=OFF"
+    $extra += "-DGWYF_BUILD_TESTS=OFF"
 }
-
 if ($JavaHome -ne "") {
-    $arguments += "-DJAVA_HOME=$JavaHome"
+    $extra += "-DJAVA_HOME=$JavaHome"
 }
 
 Write-Host "`n[1/3] Настройка проекта..." -ForegroundColor Yellow
-& cmake @arguments
+
+# Генератор подбираем по факту: Visual Studio 2022, иначе Visual Studio 2026
+# (VS 18), иначе — тот, что CMake выберет сам. Жёсткая привязка к 17 2022
+# ломается на машинах только с новым VS («could not find any instance»).
+$configured = $false
+foreach ($generator in @("Visual Studio 17 2022", "Visual Studio 18 2026")) {
+    & cmake -S "$PSScriptRoot" -B $BuildDir -G $generator -A x64 @extra
+    if ($LASTEXITCODE -eq 0) {
+        $configured = $true
+        break
+    }
+    Write-Host "Генератор '$generator' недоступен — пробую следующий." -ForegroundColor DarkYellow
+}
+
+if (-not $configured) {
+    Write-Host "Явные генераторы не подошли — отдаю выбор CMake (генератор по умолчанию)." -ForegroundColor DarkYellow
+    & cmake -S "$PSScriptRoot" -B $BuildDir @extra
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "CMake не смог настроить проект. Проверьте, что установлены CMake и Visual Studio с рабочей нагрузкой «Разработка классических приложений на C++»."
+    }
+}
 
 Write-Host "`n[2/3] Сборка Release..." -ForegroundColor Yellow
 & cmake --build $BuildDir --config Release --parallel

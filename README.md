@@ -229,7 +229,7 @@ CMake-проект) и собрать `Release|x64`. Полное описани
 
 ```powershell
 # сборка (VS 2022 x64)
-cmake -S native-injection -B native-injection/build -G "Visual Studio 17 2022" -A x64 -DJAVA_HOME=$env:JAVA_HOME
+cmake -S native-injection -B native-injection/build -A x64 -DJAVA_HOME=$env:JAVA_HOME
 cmake --build native-injection/build --config Release
 ctest --test-dir native-injection/build -C Release            # самотест, включая интеграционный
 
