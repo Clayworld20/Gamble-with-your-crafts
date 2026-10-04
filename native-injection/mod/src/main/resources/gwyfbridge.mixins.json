@@ -1,0 +1,12 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "dev.gwyfbridge.mc.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "client": [
+    "ClientPlayerInteractionManagerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

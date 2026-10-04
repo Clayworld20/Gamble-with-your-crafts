@@ -206,27 +206,49 @@ CreateLobbyAsync(maxMembers)
 * правки мира, результаты раундов и выплаты рассылает исключительно хост — подделка «от клиента» игнорируется (проверяется тестом `TestForgedPacketsRejected`);
 * инвентарь не уходит в минус, ставка списывается до броска, отрицательных количеств не бывает.
 
-## Мост в Minecraft (необязательно)
+## Мост в Minecraft: два пути
 
-Игру можно связать с живым миром Minecraft Java Edition: блок, поставленный в
-креативе, появляется кубом в мире казино, а выигрыш на столе выдаётся блоками
-обратно. Это отдельный нативный плагин (`native/`) плюс Fabric-мод
-(`minecraft-mod/`); сама игра без ключа `--bridge` работает как обычно.
+В репозитории два независимых нативных моста — они не мешают друг другу и
+собираются раздельно.
 
-```bash
-dotnet run --project src/GambleWithYourCrafts -- --bridge <путь к GWYFCraftsBridge.dll>
+### 1. `native-injection/` — инъекция в оригинальную Gamble with Your Friends
+
+Этот модуль берёт оригинальную игру из Steam и оригинальный Minecraft Java
+Edition и связывает их напрямую:
+
+| Файл | Что делает |
+| --- | --- |
+| `src/GWYF_HookEngine.cpp` | DLL, которая внедряется в процесс GWYF (Unity + Mono, `Assembly-CSharp.dll`) и ставит хуки на **отправку ставки** и **генерацию стола**; классы и методы ищутся по именам через Mono C API, адреса — через AOB-скан по сигнатурам, перехват — MinHook |
+| `src/Native_JNI_Bridge.cpp` | мост к процессу Minecraft: JNI-библиотека для JVM (`gwyf_native_bridge.dll` грузит Fabric-мод) плюс транспорт через разделяемую память и именованные каналы; выигрыш в казино превращается в пакет «выдать блоки креатива» |
+| `src/VoxelTo3DWorld.cpp` | обратная связь: блок, поставленный или сломанный в креативе, приезжает по разделяемой памяти и превращается в живой 3D-куб внутри запущенной GWYF (Unity-примитив через Mono, либо фабрика самой игры, либо нативный экспорт) |
+
+Сборка: `powershell -ExecutionPolicy Bypass -File native-injection\build_windows.ps1`
+или открыть папку `native-injection/` в Visual Studio (File → Open → Folder —
+CMake-проект) и собрать `Release|x64`. Полное описание протокола, профиля игры,
+диагностики и честный список того, что проверено: [`native-injection/README.md`](native-injection/README.md).
+
+```powershell
+# сборка (VS 2022 x64)
+cmake -S native-injection -B native-injection/build -G "Visual Studio 17 2022" -A x64 -DJAVA_HOME=$env:JAVA_HOME
+cmake --build native-injection/build --config Release
+ctest --test-dir native-injection/build -C Release            # самотест, включая интеграционный
+
+# внедрение в уже запущенную игру и наблюдение за событиями
+native-injection\build\Release\gwyfbridge.exe inject --process GambleWithYourFriends
+native-injection\build\Release\gwyfbridge.exe watch --seconds 60
 ```
 
-Полное описание — [`native/README.md`](native/README.md) (протокол, сборка DLL)
-и [`minecraft-mod/README.md`](minecraft-mod/README.md) (сборка и настройка мода).
+> **Это инструмент для приватных лобби с друзьями.** Не используйте его в
+> публичных лобби и против чужих столов: это нарушает правила игры и может
+> привести к блокировке аккаунта. Механика чужих финансовых ставок здесь не
+> ломается — мост только читает события и рисует объекты у себя.
 
-> **Почему плагин, а не инжектор в чужую игру.** Перехват памяти и хуки в чужом
-> коммерческом клиенте — это нарушение лицензии, риск блокировки аккаунта и
-> поломка чужих финансовых механик. Здесь тот же технический приём применён к
-> коду, которым мы владеем: игра сама экспортирует плагинный ABI, а Minecraft
-> работает через официальный API Fabric. Движок перехвата
-> (`GWYF_HookEngine.cpp`) остался и умеет трассировать вызовы — но только внутри
-> своего процесса.
+### 2. `native/` — плагинный мост для собственного приложения
+
+Второй путь — для C#-сборки из этого же репозитория: мост `native/` грузит само
+приложение (`--bridge <путь к GWYFCraftsBridge.dll>`), наружу торчит только
+C-ABI, перехват идёт внутри своего процесса. Fabric-мод для него —
+`minecraft-mod/`. Описание: [`native/README.md`](native/README.md).
 
 ## Тесты
 ```bash

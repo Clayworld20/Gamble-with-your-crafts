@@ -28,6 +28,12 @@ crashdumps/
 native/build/
 native/build-*/
 native/out/
+# --- Сборка инъекционного модуля (CMake / Gradle) ---
+native-injection/build/
+native-injection/build-*/
+native-injection/out/
+native-injection/mod/build/
+native-injection/mod/.gradle/
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake

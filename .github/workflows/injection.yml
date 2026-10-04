@@ -1,0 +1,168 @@
+# ============================================================================
+#  injection.yml — проверка инъекционного моста «оригинальная GWYF ↔ Minecraft».
+#
+#  Этот конвейер относится к каталогу native-injection/ — модулю, который по
+#  заданию работает с ОРИГИНАЛЬНОЙ игрой: DLL внедряется в её процесс, хуки
+#  ставятся на отправку ставки и генерацию стола, а мир Minecraft синхронизируется
+#  с игрой в обе стороны. Второй нативный каталог (native/) — отдельный мост для
+#  нашего собственного приложения, у него свой конвейер (native-bridge.yml).
+#
+#  Что делается и зачем:
+#    * windows — сборка MSVC (той же, что у пользователя в Visual Studio),
+#      линковка GWYF_HookEngine.dll / gwyf_native_bridge.dll / gwyfbridge.exe и
+#      полный самотест, включая интеграционный прогон движка внутри
+#      синтетического хоста с поддельным Mono;
+#    * linux-portable — переносимое ядро: ABI, SPSC-кольца, зеркало вокселей,
+#      профиль игры; сверка хеша раскладки с Java-константой и контракта JNI по
+#      заголовку, который генерирует javac;
+#    * fabric-mod — best-effort сборка мода (Loom тянет Minecraft и маппинги из
+#      сети, поэтому сбой этого задания не блокирует остальные проверки).
+#
+#  Журналы GitHub Actions лежат в Azure и из песочницы недоступны, поэтому все
+#  шаги пишут вывод в /tmp/*.log, а шаг диагностики выкладывает хвосты в
+#  аннотации проверки (см. .github/scripts/ci-diagnostics.sh).
+# ============================================================================
+name: injection
+
+on:
+  push:
+    branches: [main, 'arena/**']
+    paths:
+      - 'native-injection/**'
+      - '.github/workflows/injection.yml'
+  pull_request:
+    paths:
+      - 'native-injection/**'
+      - '.github/workflows/injection.yml'
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Windows (MSVC + MinHook) — сборка, DLL и самотест
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Установить JDK (нужен для gwyf_native_bridge.dll)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Настроить CMake (Visual Studio 2022, x64)
+        shell: bash
+        run: |
+          cmake -S native-injection -B native-injection/build -G "Visual Studio 17 2022" -A x64 2>&1 | tee /tmp/cmake.log
+
+      - name: Собрать Release
+        shell: bash
+        run: |
+          cmake --build native-injection/build --config Release --parallel 2>&1 | tee /tmp/build.log
+
+      - name: Самотест (включая интеграцию с поддельным Mono)
+        shell: bash
+        run: |
+          ctest --test-dir native-injection/build -C Release --output-on-failure 2>&1 | tee /tmp/ctest.log
+
+      - name: Проверить, что артефакты на месте
+        shell: pwsh
+        run: |
+          $required = @(
+            "native-injection/build/Release/GWYF_HookEngine.dll",
+            "native-injection/build/Release/gwyf_native_bridge.dll",
+            "native-injection/build/Release/gwyfbridge.exe",
+            "native-injection/build/Release/gwyfbridge_selftest.exe",
+            "native-injection/build/Release/fake_mono_host.dll"
+          )
+          $missing = @()
+          foreach ($file in $required) {
+            if (Test-Path $file) { Write-Host "есть: $file" }
+            else { $missing += $file }
+          }
+          if ($missing.Count -gt 0) {
+            Write-Error ("не собраны артефакты: " + ($missing -join ", "))
+          }
+
+      - name: Диагностика при сбое
+        if: failure()
+        shell: bash
+        run: bash .github/scripts/ci-diagnostics.sh
+
+      - name: Загрузить артефакты сборки
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gwyfbridge-native-win64
+          path: |
+            native-injection/build/Release/GWYF_HookEngine.dll
+            native-injection/build/Release/gwyf_native_bridge.dll
+            native-injection/build/Release/gwyfbridge.exe
+            native-injection/build/Release/gwyfbridge_selftest.exe
+            native-injection/build/Release/fake_mono_host.dll
+
+  linux-portable:
+    name: Linux — переносимое ядро, контракт JNI и раскладка
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Собрать переносимую часть
+        run: |
+          cmake -S native-injection -B native-injection/build -DCMAKE_BUILD_TYPE=Release 2>&1 | tee /tmp/cmake.log
+          cmake --build native-injection/build --parallel 2>&1 | tee /tmp/build.log
+
+      - name: Прогнать самотест (ABI, кольца, воксели, профиль)
+        run: ctest --test-dir native-injection/build --output-on-failure 2>&1 | tee /tmp/ctest.log
+
+      - name: Сверить хеш раскладки данных с Java-константой
+        run: |
+          HASH=$(native-injection/build/gwyfbridge_selftest --print-layout-hash)
+          echo "хеш раскладки: $HASH" | tee /tmp/wire.log
+          python3 native-injection/tools/check_wire_contract.py "$HASH" 2>&1 | tee -a /tmp/wire.log
+
+      - name: Скомпилировать Java-часть моста и сгенерировать JNI-заголовок
+        run: |
+          mkdir -p build/jni
+          javac -h build/jni -d build/classes \
+            native-injection/mod/src/main/java/dev/gwyfbridge/mc/BridgeNative.java \
+            native-injection/mod/src/main/java/dev/gwyfbridge/mc/BridgeRecords.java 2>&1 | tee /tmp/javac.log
+
+      - name: Сверить объявления JNI в Java и реализацию в C++
+        run: |
+          python3 native-injection/tools/check_jni_contract.py \
+            build/jni/dev_gwyfbridge_mc_BridgeNative.h \
+            native-injection/src/Native_JNI_Bridge.cpp 2>&1 | tee /tmp/jni.log
+
+      - name: Диагностика при сбое
+        if: failure()
+        run: bash .github/scripts/ci-diagnostics.sh
+
+  fabric-mod:
+    name: Fabric-мод (best effort: Loom тянет Minecraft из сети)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Собрать мод
+        working-directory: native-injection/mod
+        run: gradle build --no-daemon --stacktrace 2>&1 | tee /tmp/gradle.log
+
+      - name: Загрузить jar мода
+        uses: actions/upload-artifact@v4
+        with:
+          name: gwyfbridge-fabric-mod
+          path: native-injection/mod/build/libs/*.jar
+          if-no-files-found: warn
