@@ -1,9 +1,9 @@
   Determining projects to restore...
-  Restored /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj (in 306 ms).
+  Restored /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/GambleWithYourCrafts.csproj (in 296 ms).
   GambleWithYourCrafts -> /home/runner/work/Gamble-with-your-crafts/Gamble-with-your-crafts/src/GambleWithYourCrafts/bin/Release/net8.0/GambleWithYourCrafts.dll
 
 Build succeeded.
     0 Warning(s)
     0 Error(s)
 
-Time Elapsed 00:00:03.39
+Time Elapsed 00:00:03.31
