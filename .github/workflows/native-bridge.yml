@@ -30,23 +30,27 @@ jobs:
     name: Ядро C++ (Linux, тесты + TSan)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Конфигурация CMake
-        run: cmake -S native -B native/build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DGWYC_WERROR=ON
+        run: cmake -S native -B native/build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DGWYC_WERROR=ON 2>&1 | tee /tmp/cmake.log
 
       - name: Сборка
-        run: cmake --build native/build --parallel
+        run: cmake --build native/build --parallel 2>&1 | tee /tmp/build.log
 
       - name: Тесты ядра (113 проверок)
-        run: ctest --test-dir native/build --output-on-failure
+        run: ctest --test-dir native/build --output-on-failure 2>&1 | tee /tmp/ctest.log
 
       - name: Проверка под ThreadSanitizer
         run: |
           cmake -S native -B native/build-tsan -DCMAKE_BUILD_TYPE=Debug \
-                -DCMAKE_CXX_FLAGS="-fsanitize=thread -g" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
-          cmake --build native/build-tsan --parallel
-          ./native/build-tsan/bin/gwyc_core_tests
+                -DCMAKE_CXX_FLAGS="-fsanitize=thread -g" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread" 2>&1 | tee /tmp/tsan-cmake.log
+          cmake --build native/build-tsan --parallel 2>&1 | tee /tmp/tsan-build.log
+          ./native/build-tsan/bin/gwyc_core_tests 2>&1 | tee /tmp/tsan-run.log
+
+      - name: Диагностика при сбое
+        if: failure()
+        run: bash .github/scripts/ci-diagnostics.sh
 
   core-windows:
     name: Ядро C++ (Windows, MSVC + MinHook)
@@ -58,10 +62,17 @@ jobs:
         run: cmake -S native -B native/build -DGWYC_WERROR=ON
 
       - name: Сборка (Release, x64)
-        run: cmake --build native/build --config Release --parallel
+        shell: bash
+        run: cmake --build native/build --config Release --parallel 2>&1 | tee /tmp/build.log
 
       - name: Тесты ядра
-        run: ctest --test-dir native/build -C Release --output-on-failure
+        shell: bash
+        run: ctest --test-dir native/build -C Release --output-on-failure 2>&1 | tee /tmp/ctest.log
+
+      - name: Диагностика при сбое
+        if: failure()
+        shell: bash
+        run: bash .github/scripts/ci-diagnostics.sh
 
       - name: Артефакт — библиотека моста
         uses: actions/upload-artifact@v4
@@ -78,7 +89,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -89,7 +100,11 @@ jobs:
 
       - name: Сборка мода
         working-directory: minecraft-mod
-        run: gradle build --no-daemon --stacktrace
+        run: gradle build --no-daemon --stacktrace 2>&1 | tee /tmp/mod-build.log
+
+      - name: Диагностика при сбое
+        if: failure()
+        run: bash .github/scripts/ci-diagnostics.sh
 
       - name: Артефакт — jar мода
         uses: actions/upload-artifact@v4

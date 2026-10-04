@@ -9,22 +9,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Toolchain
-        run: dotnet --info
+        run: dotnet --info 2>&1 | tee /tmp/toolchain.log
 
       - name: Restore
-        run: dotnet restore GambleWithYourCrafts.sln
+        run: dotnet restore GambleWithYourCrafts.sln 2>&1 | tee /tmp/restore.log
 
       - name: Build (Release, warnings as errors)
-        run: dotnet build GambleWithYourCrafts.sln -c Release --no-restore
+        run: dotnet build GambleWithYourCrafts.sln -c Release --no-restore 2>&1 | tee /tmp/build.log
 
       - name: Logic self-tests (no Steam required)
-        run: dotnet run --project src/GambleWithYourCrafts -c Release --no-build -- --selftest --no-color
+        run: dotnet run --project src/GambleWithYourCrafts -c Release --no-build -- --selftest --no-color 2>&1 | tee /tmp/selftest.log
 
       - name: Publish single-file exe (win-x64)
-        run: dotnet publish src/GambleWithYourCrafts -c Release -r win-x64 -p:PublishSingleFile=true --self-contained false -o publish/win-x64
+        run: dotnet publish src/GambleWithYourCrafts -c Release -r win-x64 -p:PublishSingleFile=true --self-contained false -o publish/win-x64 2>&1 | tee /tmp/publish.log
 
       - name: Check the Steam native library shipped next to the exe
         run: |
@@ -32,6 +32,10 @@ jobs:
           ls -la publish/win-x64
           test -f publish/win-x64/GambleWithYourCrafts.exe
           test -f publish/win-x64/steam_api64.dll
+
+      - name: Диагностика при сбое
+        if: failure()
+        run: bash .github/scripts/ci-diagnostics.sh
 
       - name: Upload build
         uses: actions/upload-artifact@v4
