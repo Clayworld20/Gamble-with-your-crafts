@@ -127,7 +127,11 @@ if(WIN32)
         PROPERTIES COMPILE_OPTIONS "$<$<C_COMPILER_ID:MSVC>:/w>")
 
     if(MSVC)
-        target_compile_options(gwyc_bridge PRIVATE /W4 /permissive- /utf-8 /EHsc /MP)
+        # /W4 /WX — для нашего кода. Заголовки стандартной библиотеки помечаем
+        # внешними: их собственные предупреждения (напр. xutility) не должны
+        # ломать сборку проекта.
+        target_compile_options(gwyc_bridge PRIVATE /W4 /permissive- /utf-8 /EHsc /MP
+                                               /external:anglebrackets /external:W0)
         if(GWYC_WERROR)
             target_compile_options(gwyc_bridge PRIVATE /WX)
         endif()
@@ -159,7 +163,8 @@ if(GWYC_BUILD_TESTS)
         "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
     if(MSVC)
-        target_compile_options(gwyc_core_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+        target_compile_options(gwyc_core_tests PRIVATE /W4 /permissive- /utf-8 /EHsc
+                                                   /external:anglebrackets /external:W0)
         if(GWYC_WERROR)
             target_compile_options(gwyc_core_tests PRIVATE /WX)
         endif()

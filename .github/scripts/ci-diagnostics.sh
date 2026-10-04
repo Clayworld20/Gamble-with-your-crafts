@@ -51,4 +51,20 @@ for f in "${logs[@]}"; do
     done < <(grep -E 'error|Error|FAILED|FAIL' "${f}" 2>/dev/null || true)
 done
 
+# Отдельно выносим предупреждения: при /WX («предупреждения = ошибки») именно они
+# объясняют C2220, но в аннотации попадал только сам C2220 без текста.
+warned=0
+for f in "${logs[@]}"; do
+    while IFS= read -r line; do
+        [ -z "${line}" ] && continue
+        safe="${line//%/%25}"
+        safe="${safe//$'\r'/}"
+        echo "::warning::${safe}"
+        warned=$((warned + 1))
+        if [ "${warned}" -ge 8 ]; then
+            exit 0
+        fi
+    done < <(grep -E 'warning C[0-9]+|\[-W[a-z-]+\]' "${f}" 2>/dev/null || true)
+done
+
 exit 0
