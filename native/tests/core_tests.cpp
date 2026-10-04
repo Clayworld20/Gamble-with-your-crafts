@@ -27,6 +27,19 @@
 #include <thread>
 #include <vector>
 
+
+/// Копирование C-строки в буфер фиксированного размера без strncpy:
+/// MSVC считает strncpy небезопасным (C4996), а тесты собираются с /W4 /WX.
+template <std::size_t N>
+void CopyText(char (&destination)[N], const char* source)
+{
+    const std::size_t limit = N - 1;
+    std::size_t length = 0;
+    while (length < limit && source[length] != '\0') ++length;
+    std::memcpy(destination, source, length);
+    destination[length] = '\0';
+}
+
 namespace {
 
 int g_passed = 0;
@@ -762,8 +775,8 @@ void TestBridgeAbiEndToEnd()
     result.won = 1;
     result.game = 2;
     result.blockKind = static_cast<uint8_t>(GwycBlock_Gold);
-    std::strncpy(result.target, "red", sizeof(result.target) - 1);
-    std::strncpy(result.playerName, "Host", sizeof(result.playerName) - 1);
+    CopyText(result.target, "red");
+    CopyText(result.playerName, "Host");
 
     Check("ставка опубликована", GwycBridge_PublishBetResolved(&result) == GwycStatus_Ok);
 
