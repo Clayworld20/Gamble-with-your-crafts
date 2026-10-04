@@ -31,7 +31,19 @@ jobs:
           set -e
           ls -la publish/win-x64
           test -f publish/win-x64/GambleWithYourCrafts.exe
-          test -f publish/win-x64/steam_api64.dll
+          if [ ! -f publish/win-x64/steam_api64.dll ]; then
+            # Диагностика прямо в аннотациях: журналы Azure из песочницы недоступны.
+            echo "::error::steam_api64.dll не попал рядом с exe. Что есть в пакете Facepunch.Steamworks:"
+            pkg_root="${NUGET_PACKAGES:-$HOME/.nuget/packages}"
+            find "$pkg_root/facepunch.steamworks" -maxdepth 5 -type f 2>/dev/null | head -30 | while read -r line; do
+              echo "::error::  $line"
+            done
+            echo "::error::Содержимое папки публикации:"
+            find publish/win-x64 -maxdepth 1 2>/dev/null | head -20 | while read -r line; do
+              echo "::error::  $line"
+            done
+            exit 1
+          fi
 
       - name: Диагностика при сбое
         if: failure()

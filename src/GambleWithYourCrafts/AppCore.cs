@@ -289,7 +289,7 @@ public static class AppCore
     public static bool AttachBridge(string libraryPath, string channelPath, BridgePluginLoader.BridgeEvents events)
     {
         if (Bridge is not null) return true;
-        if (events is null) throw new ArgumentNullException(nameof(events));
+        ArgumentNullException.ThrowIfNull(events);
 
         Bridge = BridgePluginLoader.Load(
             libraryPath: libraryPath,

@@ -41,24 +41,25 @@
   <Target Name="CopySteamNativeLibrary" AfterTargets="Build">
     <ItemGroup>
       <!-- Основной путь: точная папка пакета (GeneratePathProperty выше). -->
-      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/**/steam_api64.dll" />
-      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/**/steam_api.dll" />
-      <!-- Запасной путь: на случай другой версии/раскладки в кэше NuGet. -->
+      <!-- Основной путь: точная папка пакета (GeneratePathProperty выше). -->
+      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/content/steam_api64.dll" Condition="'$(PkgFacepunch_Steamworks)' != ''" />
+      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/content/steam_api.dll" Condition="'$(PkgFacepunch_Steamworks)' != ''" />
+      <SteamNativeLib Include="$(PkgFacepunch_Steamworks)/runtimes/win-x64/native/steam_api64.dll" Condition="'$(PkgFacepunch_Steamworks)' != ''" />
+      <!-- Запасной путь: любой файл с таким именем внутри пакета в кэше NuGet. -->
       <SteamNativeLib Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api64.dll" />
       <SteamNativeLib Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api.dll" />
-      <SteamNativeLib Include="@(SteamNativeLib->Distinct())" />
     </ItemGroup>
     <Copy SourceFiles="@(SteamNativeLib)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true"
           Condition="'@(SteamNativeLib)' != ''" />
     <Warning Condition="'@(SteamNativeLib)' == ''"
-             Text="Не нашёл steam_api64.dll в пакете Facepunch.Steamworks (искал в $(PkgFacepunch_Steamworks) и $(NuGetPackageRoot)facepunch.steamworks). Скопируйте нативную библиотеку рядом с exe вручную (см. README, раздел про Steam)." />
+             Text="Не нашёл steam_api64.dll в пакете Facepunch.Steamworks. Точный путь пакета: '$(PkgFacepunch_Steamworks)', кэш NuGet: '$(NuGetPackageRoot)'. Скопируйте библиотеку рядом с exe вручную (см. README, раздел про Steam)." />
   </Target>
 
   <Target Name="CopySteamNativeLibraryToPublish" AfterTargets="Publish">
     <ItemGroup>
-      <SteamNativeLibPublish Include="$(PkgFacepunch_Steamworks)/**/steam_api64.dll" />
+      <SteamNativeLibPublish Include="$(PkgFacepunch_Steamworks)/content/steam_api64.dll" Condition="'$(PkgFacepunch_Steamworks)' != ''" />
+      <SteamNativeLibPublish Include="$(PkgFacepunch_Steamworks)/runtimes/win-x64/native/steam_api64.dll" Condition="'$(PkgFacepunch_Steamworks)' != ''" />
       <SteamNativeLibPublish Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api64.dll" />
-      <SteamNativeLibPublish Include="@(SteamNativeLibPublish->Distinct())" />
     </ItemGroup>
     <Copy SourceFiles="@(SteamNativeLibPublish)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true"
           Condition="'@(SteamNativeLibPublish)' != ''" />
