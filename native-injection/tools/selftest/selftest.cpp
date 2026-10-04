@@ -78,6 +78,10 @@ void Check(bool condition, const std::string& name, const std::string& detail = 
     if (!detail.empty()) text += " — " + detail;
     g_failures.push_back(text);
     std::printf("%s\n", text.c_str());
+    // Сброс буфера обязателен: при перенаправлении вывода в файл (CI) stdout
+    // буферизуется полностью, и если процесс упадёт, сообщение о провале
+    // пропадёт вместе с буфером. Именно так CI получил «SEGFAULT» без причины.
+    std::fflush(stdout);
 }
 
 template <typename T>
@@ -92,6 +96,9 @@ void CheckEqual(const T& actual, const T& expected, const std::string& name) {
 
 void Section(const char* title) {
     std::printf("\n=== %s ===\n", title);
+    // См. Check(): без сброса буфера последняя начатая секция не видна в журнале
+    // при аварийном завершении, и падение невозможно локализовать.
+    std::fflush(stdout);
 }
 
 // ── 1. ABI ──────────────────────────────────────────────────────────────────
@@ -615,6 +622,7 @@ void PrintSummary(const char* title) {
         }
     }
     std::printf("──────────────────────────────────────────────\n");
+    std::fflush(stdout);
 }
 
 #if GWYF_WINDOWS
@@ -891,6 +899,7 @@ int main(int argc, char** argv) {
 
     log::SetLevel(log::Level::Warn);
     std::printf("gwyfbridge selftest — проверка моста GWYF ↔ Minecraft\n");
+    std::fflush(stdout);
 
     TestAbi();
     TestRecordRing();

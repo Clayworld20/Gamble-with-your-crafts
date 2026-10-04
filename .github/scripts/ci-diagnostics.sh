@@ -73,7 +73,26 @@ emit() {
     emitted=$((emitted + 1))
 }
 
-# 1. Главное: имя упавшего теста и строки проверок.
+# 1. Главное: на какой секции упал тест. Самотест печатает «=== Секция ===»
+# перед каждой группой проверок, поэтому последний заголовок в журнале — это
+# место падения, а строки перед сводкой ctest содержат вывод самого теста.
+if [ -n "${primary}" ]; then
+    while IFS= read -r line; do
+        emit "${line}"
+        [ "${emitted}" -ge 8 ] && break
+    done < <(grep -E '^=== |^Итог|^ПРОВАЛ' "${primary}" 2>/dev/null | tail -n 8 || true)
+
+    marker_line=$(grep -n 'Errors while running CTest' "${primary}" 2>/dev/null | head -1 | cut -d: -f1)
+    if [ -n "${marker_line}" ]; then
+        first=$((marker_line > 30 ? marker_line - 30 : 1))
+        while IFS= read -r line; do
+            emit "${line}"
+            [ "${emitted}" -ge 20 ] && break
+        done < <(sed -n "${first},${marker_line}p" "${primary}" 2>/dev/null || true)
+    fi
+fi
+
+# 2. Имя упавшего теста и строки проверок.
 if [ -n "${primary}" ]; then
     while IFS= read -r line; do
         emit "${line}"
@@ -81,7 +100,7 @@ if [ -n "${primary}" ]; then
     done < <(grep -E "${test_marker}" "${primary}" 2>/dev/null || true)
 fi
 
-# 2. Соседние строки вокруг сводки тестов: там перечислены сами тесты.
+# 3. Соседние строки вокруг сводки тестов: там перечислены сами тесты.
 for f in "${primary}" "${secondaries[@]}"; do
     [ -z "${f}" ] && continue
     while IFS= read -r line; do
@@ -90,7 +109,7 @@ for f in "${primary}" "${secondaries[@]}"; do
     done < <(grep -A 6 'The following tests FAILED' "$f" 2>/dev/null || true)
 done
 
-# 3. Прочие ошибки из журналов.
+# 4. Прочие ошибки из журналов.
 for f in "${primary}" "${secondaries[@]}"; do
     [ -z "${f}" ] && continue
     while IFS= read -r line; do
@@ -99,7 +118,7 @@ for f in "${primary}" "${secondaries[@]}"; do
     done < <(grep -E "${generic_error}" "$f" 2>/dev/null || true)
 done
 
-# 4. Хвосты журналов целиком: причины вида «could not find any instance…».
+# 5. Хвосты журналов целиком: причины вида «could not find any instance…».
 for f in "${primary}" "${secondaries[@]}"; do
     [ -z "${f}" ] && continue
     emit "--- хвост ${f} ---"
