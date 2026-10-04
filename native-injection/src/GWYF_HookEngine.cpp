@@ -976,11 +976,25 @@ private:
 
     // ── IPC ─────────────────────────────────────────────────────────────────
 
+    /// Имя общего региона. Приоритет — переменная окружения GWYF_REGION_NAME:
+    /// она нужна, чтобы два экземпляра игры (или автотесты) не толкались в одном
+    /// регионе; иначе берём имя из профиля. Оба имени — wide-строки, потому что
+    /// это имена объектов ядра Windows.
+    std::wstring ResolveRegionName() const {
+        wchar_t buffer[256]{};
+        const DWORD length = GetEnvironmentVariableW(L"GWYF_REGION_NAME", buffer, 256);
+        if (length > 0 && length < 256) {
+            return std::wstring(buffer, buffer + length);
+        }
+        return profile_.regionName;
+    }
+
     void OpenBridge() {
         if (bridge_.IsOpen()) return;
 
         std::string error;
-        if (!bridge_.Open(ipc::Role::Game, profile_.regionName, BuildTag(), true, &error)) {
+        const std::wstring regionName = ResolveRegionName();
+        if (!bridge_.Open(ipc::Role::Game, regionName, BuildTag(), true, &error)) {
             GWYF_WARN("Не удалось открыть общую память: %s. Мост работать не будет, хук продолжит собирать телеметрию.",
                       error.c_str());
         }
