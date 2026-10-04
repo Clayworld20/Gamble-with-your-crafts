@@ -736,6 +736,7 @@ public static class SelfTest
     {
         var bus = new LoopbackBus();
         var hostWorld = new VoxelGrid(12, 6, 12);
+        VoxelWorldPresets.BuildStarterArena(hostWorld);
         var clientWorld = new VoxelGrid(12, 6, 12);
 
         using var host = new GambleCreativeSystem(bus.CreateEndpoint(4001), "Хост", hostWorld, random: new SeededRandom(1));
