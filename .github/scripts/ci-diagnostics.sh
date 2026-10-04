@@ -67,4 +67,22 @@ for f in "${logs[@]}"; do
     done < <(grep -E 'warning C[0-9]+|\[-W[a-z-]+\]' "${f}" 2>/dev/null || true)
 done
 
+# Хвост журнала целиком: у ошибок CMake/MSBuild причина часто лежит в строках,
+# которые не содержат слов error/failed (перечисление путей, «could not find…»),
+# и до аннотаций такие строки раньше не доходили.
+tailed=0
+for f in "${logs[@]}"; do
+    echo "::error::--- хвост ${f} ---"
+    while IFS= read -r line; do
+        [ -z "${line}" ] && continue
+        safe="${line//%/%25}"
+        safe="${safe//$'\r'/}"
+        echo "::error::${safe}"
+    done < <(tail -n 12 "${f}" 2>/dev/null || true)
+    tailed=$((tailed + 1))
+    if [ "${tailed}" -ge 2 ]; then
+        break
+    fi
+done
+
 exit 0
