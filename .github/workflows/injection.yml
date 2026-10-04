@@ -67,6 +67,18 @@ jobs:
         run: |
           ctest --test-dir native-injection/build -C Release --output-on-failure 2>&1 | tee /tmp/ctest.log
 
+      # ctest складывает вывод всех тестов в один файл, поэтому при аварийном
+      # завершении процесса хвост журнала не показывает место сбоя. Повторяем
+      # прогон напрямую — по журналу на тест, чей хвост читает диагностика.
+      - name: Повторить тесты напрямую (журнал на каждый тест)
+        if: failure()
+        shell: bash
+        run: |
+          cd native-injection/build/Release || exit 0
+          ./gwyfbridge_selftest.exe --portable 2>&1 | tee /tmp/selftest-portable.log || true
+          ./gwyfbridge_selftest.exe 2>&1 | tee /tmp/selftest-all.log || true
+          ./gwyfbridge_selftest.exe --integration ./GWYF_HookEngine.dll 2>&1 | tee /tmp/selftest-integration.log || true
+
       - name: Проверить, что артефакты на месте
         shell: pwsh
         run: |
