@@ -41,10 +41,11 @@ public sealed class Inventory
         }
     }
 
+    /// <summary>Сколько блоков данного типа. Понимает и ключи ("gold"), и русские названия ("Золото").</summary>
     public int Get(string key)
     {
         if (string.IsNullOrWhiteSpace(key)) return 0;
-        return _items.TryGetValue(key, out int amount) ? amount : 0;
+        return _items.TryGetValue(Normalize(key), out int amount) ? amount : 0;
     }
 
     public bool Has(string key, int amount) => amount <= 0 || Get(key) >= amount;

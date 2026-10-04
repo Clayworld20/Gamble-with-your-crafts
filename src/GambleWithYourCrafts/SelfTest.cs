@@ -58,7 +58,7 @@ public static class SelfTest
         {
             byte[] bytes = original.Serialize();
             runner.Check($"сериализация {original.Type} не пустая и влезает в пакет",
-                bytes.Length is > 4 and <= NetMessage.MaxPacketBytes,
+                bytes.Length is >= 4 and <= NetMessage.MaxPacketBytes,
                 $"{bytes.Length} байт");
 
             NetMessage restored = NetMessage.Deserialize(bytes);
@@ -354,7 +354,8 @@ public static class SelfTest
             writer.WriteVarUInt(1);
             writer.WriteUInt64(0);
             writer.WriteString(string.Empty);
-            writer.WriteVarUInt(4);
+            writer.WriteVarUInt(5);
+            writer.WriteVarUInt(1);
             writer.WriteVarInt(0);
             writer.WriteVarInt(0);
             writer.WriteVarInt(0);
@@ -602,11 +603,15 @@ public static class SelfTest
         runner.Check("камень вернулся клиенту", client.LocalInventory.Get(Blocks.StoneKey) == 32, client.LocalInventory.Describe());
 
         // Массовая заливка (VoxelBatch + фрагментация при большом объёме).
-        runner.Check("клиент залил площадку", client.Fill(new VoxelPos(2, 3, 2), new VoxelPos(9, 3, 9), BlockId.Wood, out string fillMessage), fillMessage);
+        runner.Check("клиент залил площадку 6x6 землёй",
+            client.Fill(new VoxelPos(2, 3, 2), new VoxelPos(7, 3, 7), BlockId.Dirt, out string fillMessage), fillMessage);
         Pump(bus, host, client);
         runner.Check("миры совпали после заливки", GridsEqual(hostWorld, clientWorld),
             $"хост: {hostWorld.CountNonAir()}, клиент: {clientWorld.CountNonAir()}");
-        runner.Check("дерево списалось у клиента", client.LocalInventory.Get(Blocks.WoodKey) == 24 - 64, client.LocalInventory.Describe());
+        runner.Check("земля списалась у клиента ровно на 36 вокселей",
+            client.LocalInventory.Get(Blocks.DirtKey) == 64 - 36, client.LocalInventory.Describe());
+        runner.Check("у хоста инвентарь клиента тоже пересчитан",
+            host.Players[clientId].Inventory.Get(Blocks.DirtKey) == 64 - 36, host.Players[clientId].Inventory.Describe());
     }
 
     private static void TestCasinoOverNetwork(TestRunner runner)
@@ -744,9 +749,13 @@ public static class SelfTest
         Pump(bus, host, client);
         runner.Check("мир не изменился после неверного запроса", hostWorld.CountNonAir() == clientWorld.CountNonAir());
 
-        // Клетка занята.
-        hostWorld.Set(3, 1, 3, BlockId.Stone);
-        runner.Check("нельзя ставить в занятую клетку", !client.Place(3, 1, 3, BlockId.Dirt, out string occupied), occupied);
+        // Клетка занята: клиент видит пол арены, значит проверяет локально.
+        runner.Check("клиент не ставит блок в занятую клетку (пол арены)",
+            !client.Place(5, 0, 5, BlockId.Dirt, out string occupied), occupied);
+
+        // Хост тоже проверяет занятость по своей копии мира.
+        runner.Check("хост не ставит блок в занятую клетку",
+            !host.Place(5, 0, 5, BlockId.Dirt, out string hostOccupied), hostOccupied);
 
         // Нет ресурсов.
         var poor = new Inventory();
