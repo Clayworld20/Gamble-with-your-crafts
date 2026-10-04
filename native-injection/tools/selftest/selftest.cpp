@@ -936,12 +936,14 @@ int RunIntegration(const std::string& enginePath) {
     Check(fakeInvoke != nullptr, "фальшивый invoke найден");
 
     if (fakeInvoke != nullptr) {
-        void* args[2] = {nullptr, nullptr};
-        i64 amount = 0;
+        // mono_runtime_invoke принимает МАССИВ АДРЕСОВ аргументов: params[i]
+        // указывает на значение i-го аргумента, а не хранит его само. Раньше
+        // здесь лежали «значения, переодетые в указатели», и на Windows детур
+        // падал с нарушением доступа: он (как и настоящий Mono) разыменовывает
+        // params[i], чтобы прочитать float и int из профиля.
         float betAmount = 5.0f;
-        args[0] = reinterpret_cast<void*>(static_cast<u64>(76561198000000001ull));
-        args[1] = reinterpret_cast<void*>(static_cast<u64>(static_cast<i64>(betAmount)));
-        (void)amount;
+        i32 chipType = 3;
+        void* args[2] = {&betAmount, &chipType};
 
         fakeInvoke("Game.BetManager", args, "PlaceBet");
 
@@ -960,6 +962,18 @@ int RunIntegration(const std::string& enginePath) {
         }
 
         Check(eventSeen, "событие ставки дошло от движка к стороне Minecraft");
+
+        // Детур обязан не только заметить вызов, но и передать его дальше —
+        // с теми же аргументами. Это проверяется по состоянию поддельной игры.
+        using CounterFn = i64(*)();
+        using FloatFn = float(*)();
+        auto placeBetCalls = reinterpret_cast<CounterFn>(GetProcAddress(fakeMono, "FakeMono_PlaceBetCalls"));
+        auto lastBetAmount = reinterpret_cast<FloatFn>(GetProcAddress(fakeMono, "FakeMono_LastBetAmount"));
+
+        Check(placeBetCalls != nullptr && placeBetCalls() == 1,
+              "детур вызвал оригинальный метод ровно один раз");
+        Check(lastBetAmount != nullptr && lastBetAmount() == betAmount,
+              "сумма ставки дошла до оригинального метода без искажений");
     }
 
     shutdown();

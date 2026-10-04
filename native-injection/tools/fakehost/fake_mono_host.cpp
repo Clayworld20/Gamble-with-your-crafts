@@ -554,6 +554,11 @@ __declspec(dllexport) bool FakeMono_SetStaticInt64(const char* className, const 
 
 __declspec(dllexport) i64 FakeMono_PlaceBetCalls(void) { return g_placeBetCalls; }
 
+/// Что именно приняла «игра» в оригинальном методе: если детур передал вызов
+/// дальше без искажений, суммы и типы фишки совпадут с тем, что отправил тест.
+__declspec(dllexport) float FakeMono_LastBetAmount(void) { return g_lastBetAmount; }
+__declspec(dllexport) i32 FakeMono_LastChipType(void) { return g_lastChipType; }
+
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
     (void)instance;
     (void)reserved;
