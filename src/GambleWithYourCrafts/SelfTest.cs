@@ -17,34 +17,37 @@ public static class SelfTest
         var runner = new TestRunner();
         Console.OutputEncoding = Encoding.UTF8;
 
-        runner.Section("Протокол: сериализация сообщений");
-        TestProtocolRoundTrips(runner);
-        TestProtocolRejectsGarbage(runner);
-
-        runner.Section("Протокол: сборка фрагментов");
-        TestFragments(runner);
-
-        runner.Section("Воксели: сетка и сжатие");
-        TestVoxelGrid(runner);
-        TestVoxelCodec(runner);
-        TestEditBatchCodec(runner);
-        TestStarterArena(runner);
-
-        runner.Section("Инвентарь");
-        TestInventory(runner);
-
-        runner.Section("Казино: правила и выплаты");
-        TestCasinoRules(runner);
-        TestCasinoStatistics(runner);
-
-        runner.Section("Сеть: репликация мира и инвентарей");
-        TestReplication(runner);
-        TestCasinoOverNetwork(runner);
-        TestForgedPacketsRejected(runner);
-        TestHostAuthority(runner);
-        TestHostMigration(runner);
+        Group(runner, "Протокол: сериализация сообщений", TestProtocolRoundTrips);
+        Group(runner, "Протокол: отказ от мусора и подделок", TestProtocolRejectsGarbage);
+        Group(runner, "Протокол: сборка фрагментов", TestFragments);
+        Group(runner, "Воксели: сетка", TestVoxelGrid);
+        Group(runner, "Воксели: сжатие и пакеты правок", TestVoxelCodec);
+        Group(runner, "Воксели: пакет правок", TestEditBatchCodec);
+        Group(runner, "Воксели: стартовая арена", TestStarterArena);
+        Group(runner, "Инвентарь", TestInventory);
+        Group(runner, "Казино: правила и выплаты", TestCasinoRules);
+        Group(runner, "Казино: статистика", TestCasinoStatistics);
+        Group(runner, "Сеть: репликация мира и инвентарей", TestReplication);
+        Group(runner, "Сеть: казино через P2P", TestCasinoOverNetwork);
+        Group(runner, "Сеть: защита от поддельных пакетов", TestForgedPacketsRejected);
+        Group(runner, "Сеть: авторитет хоста", TestHostAuthority);
+        Group(runner, "Сеть: смена хоста", TestHostMigration);
 
         return runner.Summary();
+    }
+
+    /// <summary>Прогнать группу тестов. Падение внутри группы не роняет весь набор.</summary>
+    private static void Group(TestRunner runner, string title, Action<TestRunner> test)
+    {
+        runner.Section(title);
+        try
+        {
+            test(runner);
+        }
+        catch (Exception ex)
+        {
+            runner.Check($"группа «{title}» прошла без необработанных исключений", false, $"{ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     // ── Протокол ─────────────────────────────────────────────────────────────
@@ -351,7 +354,7 @@ public static class SelfTest
             writer.WriteVarUInt(1);
             writer.WriteUInt64(0);
             writer.WriteString(string.Empty);
-            writer.WriteVarUInt(5);
+            writer.WriteVarUInt(4);
             writer.WriteVarInt(0);
             writer.WriteVarInt(0);
             writer.WriteVarInt(0);
