@@ -139,6 +139,15 @@ jobs:
       - name: Прогнать самотест (ABI, кольца, воксели, профиль)
         run: ctest --test-dir native-injection/build --output-on-failure 2>&1 | tee /tmp/ctest.log
 
+      # Стек главного потока в Windows — 1 МБ (в Linux — 8 МБ), поэтому тест с
+      # крупным локальным объектом падает только на MSVC: именно так CI получил
+      # 0xC00000FD в первом же тесте и без единой подсказки о месте сбоя.
+      # Повторяем здесь то же ограничение — регрессию поймает Linux-задача.
+      - name: Самотест при стеке 1 МБ (как на Windows — ловит крупные кадры)
+        run: |
+          ulimit -s 1024
+          native-injection/build/gwyfbridge_selftest --portable 2>&1 | tee /tmp/stack.log
+
       - name: Сверить хеш раскладки данных с Java-константой
         run: |
           HASH=$(native-injection/build/gwyfbridge_selftest --print-layout-hash)

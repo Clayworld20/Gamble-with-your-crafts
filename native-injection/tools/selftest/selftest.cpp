@@ -53,6 +53,7 @@
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
@@ -163,9 +164,19 @@ void TestAbi() {
     CheckEqual<u32>(ipc::kInlinePayload, 64, "размер полезной нагрузки");
     CheckEqual<u32>(ipc::kRecordRingCapacity, 512, "ёмкость кольца записей");
     Check(ipc::kRegionSize == sizeof(ipc::SharedHeader), "размер региона совпадает с заголовком");
-    Check(ipc::ValidateHeader(ipc::SharedHeader{}, nullptr) == false, "пустой заголовок отвергается");
 
-    ipc::SharedHeader header{};
+    // SharedHeader — это ВЕСЬ регион (655 680 байт: два кольца записей по 64 КБ
+    // и два байтовых кольца по 256 КБ), а не «шапка» из нескольких полей.
+    // На стеке главного потока Windows (1 МБ) такой объект не помещается: ранее
+    // здесь было `ipc::SharedHeader header{}` плюс временный объект в вызове
+    // ValidateHeader, в сумме 1,25 МБ — и тест падал с 0xC00000FD ещё до печати
+    // заголовка секции. Держим регион в куче, как это делает боевой код.
+    auto headerStorage = std::make_unique<ipc::SharedHeader>();
+
+    auto blankRegion = std::make_unique<ipc::SharedHeader>();
+    Check(ipc::ValidateHeader(*blankRegion, nullptr) == false, "пустой заголовок отвергается");
+
+    ipc::SharedHeader& header = *headerStorage;
     header.magic = ipc::kMagic;
     header.abiVersion = ipc::kAbiVersion;
     header.headerSize = static_cast<u32>(sizeof(ipc::SharedHeader));
@@ -481,7 +492,10 @@ void TestVoxelMirror() {
     spec.poolLimit = 8;
     spec.despawnOnBreak = true;
 
-    voxel::VoxelMirror mirror;
+    // Зеркало вокселей тоже крупное (262 552 байта) — держим его в куче, чтобы
+    // кадр функции оставался маленьким: стек главного потока на Windows всего 1 МБ.
+    auto mirrorStorage = std::make_unique<voxel::VoxelMirror>();
+    voxel::VoxelMirror& mirror = *mirrorStorage;
     mirror.Configure(spec);
 
     FakeAdapter adapter;
