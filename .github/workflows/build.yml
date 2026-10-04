@@ -1,0 +1,41 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: dotnet --info
+
+      - name: Restore
+        run: dotnet restore GambleWithYourCrafts.sln
+
+      - name: Build (Release, warnings as errors)
+        run: dotnet build GambleWithYourCrafts.sln -c Release --no-restore
+
+      - name: Logic self-tests (no Steam required)
+        run: dotnet run --project src/GambleWithYourCrafts -c Release --no-build -- --selftest --no-color
+
+      - name: Publish single-file exe (win-x64)
+        run: dotnet publish src/GambleWithYourCrafts -c Release -r win-x64 -p:PublishSingleFile=true --self-contained false -o publish/win-x64
+
+      - name: Check the Steam native library shipped next to the exe
+        run: |
+          set -e
+          ls -la publish/win-x64
+          test -f publish/win-x64/GambleWithYourCrafts.exe
+          test -f publish/win-x64/steam_api64.dll
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: GambleWithYourCrafts-win-x64
+          path: publish/win-x64/
+          if-no-files-found: error

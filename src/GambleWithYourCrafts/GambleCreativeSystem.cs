@@ -610,7 +610,8 @@ public sealed class GambleCreativeSystem : IDisposable
                 break;
 
             case CasinoResultMessage result:
-                if (IsFromHost(from) || result.PlayerId == Net.LocalId) ApplyCasinoResult(result);
+                // Результаты раундов принимаем только от хоста: остальные не могут «начислить» себе выигрыш.
+                if (IsFromHost(from)) ApplyCasinoResult(result);
                 break;
 
             case ByeMessage bye:
