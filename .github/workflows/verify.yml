@@ -1,0 +1,62 @@
+name: verify
+
+# Рабочий контур проверки: собирает приложение, гоняет встроенные тесты логики
+# и кладёт отчёт в ci/. Отчёт коммитится в ветку, чтобы результат был виден
+# без доступа к логам Actions. Итоговый (чистый) пайплайн — build.yml.
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: dotnet --info
+
+      - name: API dump (Facepunch.Steamworks)
+        continue-on-error: true
+        run: |
+          mkdir -p ci
+          dotnet run --project tools/ApiDump/ApiDump.csproj -c Release 2>&1 | tee ci/api-dump.txt
+
+      - name: Build (Release, warnings as errors)
+        continue-on-error: true
+        run: |
+          mkdir -p ci
+          dotnet build src/GambleWithYourCrafts/GambleWithYourCrafts.csproj -c Release -v minimal 2>&1 | tee ci/build.txt
+
+      - name: Self-test (logic only, no Steam)
+        continue-on-error: true
+        run: |
+          mkdir -p ci
+          dotnet run --project src/GambleWithYourCrafts/GambleWithYourCrafts.csproj -c Release -- --selftest --no-color 2>&1 | tee ci/selftest.txt
+
+      - name: Publish single-file (win-x64)
+        continue-on-error: true
+        run: |
+          mkdir -p ci
+          dotnet publish src/GambleWithYourCrafts/GambleWithYourCrafts.csproj -c Release -r win-x64 -p:PublishSingleFile=true --self-contained false -o publish/win-x64 2>&1 | tee ci/publish.txt
+          ls -la publish/win-x64 >> ci/publish.txt
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-report
+          path: ci/
+
+      - name: Commit report to branch
+        if: always()
+        run: |
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          git add -f ci
+          git commit -m "ci: report [skip ci]" || echo "nothing to commit"
+          git push origin HEAD:${GITHUB_REF_NAME} || echo "push skipped"

@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>GambleWithYourCrafts</AssemblyName>
+    <RootNamespace>GambleWithYourCrafts</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>Gamble With Your Crafts</Product>
+    <Description>Азартное казино и креативная воксельная стройка в одном приложении, сеть через Steam P2P (тестовый AppID 480).</Description>
+
+    <!-- Строгий режим: предупреждения ломают сборку, nullable включён. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <UseAppHost>true</UseAppHost>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Facepunch.Steamworks 2.3.3 — последняя версия, опубликованная в NuGet.
+         Внутри lib/netstandard2.0 Facepunch.Steamworks.Win64.dll + steam_api64.dll в content/. -->
+    <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" />
+  </ItemGroup>
+
+  <!--
+    Пакет Facepunch.Steamworks кладёт нативный steam_api64.dll в content/,
+    который NuGet не копирует при PackageReference. Копируем сами — иначе Steam
+    не поднимется с ошибкой "Unable to load DLL 'steam_api64'".
+  -->
+  <Target Name="CopySteamNativeLibrary" AfterTargets="Build">
+    <ItemGroup>
+      <SteamNativeLib Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api64.dll" />
+      <SteamNativeLib Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SteamNativeLib)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Condition="'@(SteamNativeLib)' != ''" />
+    <Warning Condition="'@(SteamNativeLib)' == ''"
+             Text="Не нашёл steam_api64.dll в пакете Facepunch.Steamworks. Скопируйте нативную библиотеку рядом с exe вручную (см. README, раздел про Steam)." />
+  </Target>
+
+  <Target Name="CopySteamNativeLibraryToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <SteamNativeLibPublish Include="$(NuGetPackageRoot)facepunch.steamworks/**/steam_api64.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SteamNativeLibPublish)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" Condition="'@(SteamNativeLibPublish)' != ''" />
+  </Target>
+
+</Project>
