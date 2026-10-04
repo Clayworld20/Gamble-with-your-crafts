@@ -108,22 +108,20 @@ if(WIN32)
         set(GWYC_MINHOOK_HDE third_party/minhook/src/hde/hde32.c)
     endif()
 
-    target_sources(gwyc_bridge PRIVATE
+    set(GWYC_MINHOOK_SOURCES
         third_party/minhook/src/buffer.c
         third_party/minhook/src/hook.c
         third_party/minhook/src/trampoline.c
         ${GWYC_MINHOOK_HDE})
+
+    target_sources(gwyc_bridge PRIVATE ${GWYC_MINHOOK_SOURCES})
 
     target_include_directories(gwyc_bridge PRIVATE third_party/minhook/include)
     target_compile_definitions(gwyc_bridge PRIVATE _WIN32_WINNT=0x0601 WIN32_LEAN_AND_MEAN NOMINMAX)
 
     # MinHook — сторонний код (BSD-2-Clause, вендорен без изменений): свой /W4 /WX
     # к нему не применяем, иначе чужие предупреждения ломают нашу сборку.
-    set_source_files_properties(
-        third_party/minhook/src/buffer.c
-        third_party/minhook/src/hook.c
-        third_party/minhook/src/trampoline.c
-        ${GWYC_MINHOOK_HDE}
+    set_source_files_properties(${GWYC_MINHOOK_SOURCES}
         PROPERTIES COMPILE_OPTIONS "$<$<C_COMPILER_ID:MSVC>:/w>")
 
     if(MSVC)
@@ -162,24 +160,32 @@ if(GWYC_BUILD_TESTS)
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+    # Ядро (включая движок хуков) собирается прямо в тест на всех платформах:
+    # так тест работает с одним экземпляром MinHook и не зависит от экспорта
+    # C++-символов из DLL — наружу торчит только C-ABI (plugin_abi.h).
+    target_sources(gwyc_core_tests PRIVATE ${GWYC_CORE_SOURCES})
+    target_compile_definitions(gwyc_core_tests PRIVATE GWYC_BRIDGE_STATIC)
+
+    if(WIN32)
+        target_sources(gwyc_core_tests PRIVATE ${GWYC_MINHOOK_SOURCES})
+        target_include_directories(gwyc_core_tests PRIVATE third_party/minhook/include)
+        target_compile_definitions(gwyc_core_tests PRIVATE _WIN32_WINNT=0x0601 WIN32_LEAN_AND_MEAN NOMINMAX)
+    endif()
+
     if(MSVC)
         target_compile_options(gwyc_core_tests PRIVATE /W4 /permissive- /utf-8 /EHsc
                                                    /external:anglebrackets /external:W0)
         if(GWYC_WERROR)
             target_compile_options(gwyc_core_tests PRIVATE /WX)
         endif()
-        target_compile_definitions(gwyc_core_tests PRIVATE _WIN32_WINNT=0x0601)
-        # Тесты ходят в мост через C-ABI: под Windows это импорт из DLL по .lib.
-        target_link_libraries(gwyc_core_tests PRIVATE gwyc_bridge Threads::Threads)
     else()
-        # На Linux/macOS мост собирается прямо в тест: отдельная .so не нужна.
-        target_sources(gwyc_core_tests PRIVATE ${GWYC_CORE_SOURCES})
         target_compile_options(gwyc_core_tests PRIVATE -Wall -Wextra)
         if(GWYC_WERROR)
             target_compile_options(gwyc_core_tests PRIVATE -Werror)
         endif()
-        target_link_libraries(gwyc_core_tests PRIVATE Threads::Threads)
     endif()
+
+    target_link_libraries(gwyc_core_tests PRIVATE Threads::Threads)
 
     enable_testing()
     add_test(NAME gwyc_core_tests COMMAND gwyc_core_tests)

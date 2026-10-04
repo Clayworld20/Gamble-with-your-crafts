@@ -23,6 +23,9 @@
 #   define GWYC_ABI_CALL __cdecl
 #   ifdef GWYC_BRIDGE_EXPORTS
 #       define GWYC_BRIDGE_API __declspec(dllexport)
+#   elif defined(GWYC_BRIDGE_STATIC)
+        // Мост собран в тот же бинарник (тесты ядра): импорт/экспорт не нужен.
+#       define GWYC_BRIDGE_API
 #   else
 #       define GWYC_BRIDGE_API __declspec(dllimport)
 #   endif
