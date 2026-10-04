@@ -24,7 +24,10 @@ namespace {
 
 std::mutex g_mutex;
 FILE* g_file = nullptr;
-Level g_level = Level::Info;
+// Уровень читается из детуров (managed-поток) без блокировки, а меняется при
+// инициализации: держим его атомарным, чтобы обращение к нему не было гонкой
+// (проверка в Write() — самый частый путь, поэтому memory_order_relaxed).
+std::atomic<Level> g_level{Level::Info};
 std::string g_path;
 u32 g_lines = 0;
 constexpr u32 kMaxLines = 20000;  // защита от бесконечного роста лога
@@ -53,7 +56,7 @@ const char* LevelName(Level level) {
 
 void Open(const std::string& filename, Level minLevel) {
     std::lock_guard<std::mutex> lock(g_mutex);
-    g_level = minLevel;
+    g_level.store(minLevel, std::memory_order_relaxed);
     if (filename.empty()) return;
 
     if (g_file != nullptr) {
@@ -88,15 +91,15 @@ void Close() {
 
 void SetLevel(Level level) {
     std::lock_guard<std::mutex> lock(g_mutex);
-    g_level = level;
+    g_level.store(level, std::memory_order_relaxed);
 }
 
 Level GetLevel() {
-    return g_level;
+    return g_level.load(std::memory_order_relaxed);
 }
 
 void Write(Level level, const char* fmt, ...) {
-    if (static_cast<u32>(level) < static_cast<u32>(g_level)) return;
+    if (static_cast<u32>(level) < static_cast<u32>(g_level.load(std::memory_order_relaxed))) return;
 
     char message[2048];
     va_list args;

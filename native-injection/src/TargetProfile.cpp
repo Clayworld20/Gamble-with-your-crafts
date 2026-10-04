@@ -101,7 +101,7 @@ bool ParseFloat3(const std::string& text, float out[3]) {
     if (parts.size() != 3) return false;
 
     try {
-        for (int index = 0; index < 3; ++index) {
+        for (usize index = 0; index < parts.size(); ++index) {
             out[index] = std::stof(parts[index]);
         }
     } catch (...) {
@@ -206,7 +206,7 @@ std::vector<const WatchSpec*> Profile::FindAll(WatchRole role) const {
 }
 
 std::string Profile::Describe() const {
-    std::string text = "Профиль: регион=" + std::string(regionName.begin(), regionName.end()) +
+    std::string text = "Профиль: регион=" + ToNarrowUtf8(regionName) +
                        ", сборка=" + gameAssembly + ", целей=" + std::to_string(watches.size()) + "\n";
 
     for (const WatchSpec& watch : watches) {
@@ -245,7 +245,7 @@ namespace {
 
 void ApplyBridgeSection(Profile& profile, const std::string& key, const std::string& value) {
     if (key == "region") {
-        profile.regionName.assign(value.begin(), value.end());
+        profile.regionName = ToWideUtf8(value);
     } else if (key == "log") {
         profile.logPath = value;
     } else if (key == "heartbeat_ms") {
@@ -731,8 +731,12 @@ bool EvaluateSource(const std::string& source, const EvalContext& context, i64& 
 }
 
 bool ApplyToPayload(Payload& payload, const std::string& target, i64 intValue, float floatValue, bool isFloat) {
-    auto asInt = [&](i64 fallback = 0) -> i64 { return isFloat ? static_cast<i64>(floatValue) : intValue; };
-    auto asFloat = [&](float fallback = 0.0f) -> float { return isFloat ? floatValue : static_cast<float>(intValue); };
+    // Лямбды без параметров: значение либо уже пришло как целое/float с явным
+    // признаком, либо (для целочисленного приёма) берётся intValue. Раньше здесь
+    // был необязательный fallback, который ни один вызов не использовал, — GCC
+    // на нём ругался «unused parameter» законно, поэтому параметр убран.
+    auto asInt = [&]() -> i64 { return isFloat ? static_cast<i64>(floatValue) : intValue; };
+    auto asFloat = [&]() -> float { return isFloat ? floatValue : static_cast<float>(intValue); };
 
     if (target == "bet.amount") { ipc::PayloadBet::SetAmount(payload.bet, asFloat()); return true; }
     if (target == "bet.chipType") { payload.bet.chipType = static_cast<u32>(asInt()); return true; }

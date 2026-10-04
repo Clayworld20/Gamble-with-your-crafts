@@ -150,7 +150,11 @@ void* ResolveRipRelative(const void* instruction, i32 instructionLength, i32 dis
     std::memcpy(&displacement, bytes + dispOffset, sizeof(displacement));
 
     // Адрес вычисляется от конца инструкции: RIP относителен следующей команде.
-    const auto address = reinterpret_cast<u64>(bytes) + instructionLength + displacement;
+    // Смещение знаковое, поэтому приводим его к i64 и только затем к u64:
+    // отрицательное смещение даёт вычитание по модулю 2^64 — это и есть
+    // адресная арифметика, а явные приведения снимают предупреждение о знаке.
+    const i64 delta = static_cast<i64>(instructionLength) + static_cast<i64>(displacement);
+    const auto address = reinterpret_cast<u64>(bytes) + static_cast<u64>(delta);
     return reinterpret_cast<void*>(address);
 }
 

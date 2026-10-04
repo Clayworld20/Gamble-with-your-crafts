@@ -486,8 +486,19 @@ ArgKind ClassifyType(void* monoType) {
             return ArgKind::Object;
         case kMonoTypePtr:
             return ArgKind::Int64;
+        case kMonoTypeEnum:
+            // Перечисление по умолчанию четырёхбайтовое (int); long-перечисления
+            // Mono отдаёт как I8 и попадают в ветку kMonoTypeI8 выше.
+            return ArgKind::Int32;
+        case kMonoTypeValuetype:
+            // Значимый тип лежит в аргументе целиком; читаем первые четыре байта —
+            // этого достаточно для идентификаторов и счётчиков, которые пишет профиль.
+            return ArgKind::Int32;
         default:
-            // enum/value type: считаем 4-байтовым, если это не перечисление с long.
+            // Прочие типы (char 0x03, genericinst 0x15 и т.п.): поведение прежнее —
+            // считаем 4-байтовым. Это осознанная осторожность: менять классификацию
+            // «неизвестного» типа значило бы ослабить проверку раскладки, которая
+            // защищает стек детура.
             return ArgKind::Int32;
     }
 }

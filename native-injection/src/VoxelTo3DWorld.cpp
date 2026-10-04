@@ -431,9 +431,12 @@ public:
 
         // Нативный слой принимает уже готовые координаты игры (он наш, значит
         // договорённость о единицах нам известна): масштаб применяем здесь.
-        const i32 x = static_cast<i32>(std::lround(spec_.origin[0] + position.x * spec_.scale));
-        const i32 y = static_cast<i32>(std::lround(spec_.origin[1] + (spec_.flattenY ? 0.0f : position.y * spec_.scale)));
-        const i32 z = static_cast<i32>(std::lround(spec_.origin[2] + position.z * spec_.scale));
+        // Координаты вокселя целые (Vec3i), а мир игры — float: преобразование
+        // делаем явно, чтобы не ловить C4244/warning на сужении под /WX.
+        const i32 x = static_cast<i32>(std::lround(spec_.origin[0] + static_cast<float>(position.x) * spec_.scale));
+        const i32 y = static_cast<i32>(std::lround(
+            spec_.origin[1] + (spec_.flattenY ? 0.0f : static_cast<float>(position.y) * spec_.scale)));
+        const i32 z = static_cast<i32>(std::lround(spec_.origin[2] + static_cast<float>(position.z) * spec_.scale));
 
         if (!spawn_(x, y, z, block, outHandle)) {
             if (error != nullptr) *error = "нативная функция создания объекта вернула false";

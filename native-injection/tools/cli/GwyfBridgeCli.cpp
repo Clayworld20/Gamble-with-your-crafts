@@ -154,7 +154,7 @@ u32 FindProcessByName(const std::string& name) {
     PROCESSENTRY32W entry{};
     entry.dwSize = sizeof(entry);
 
-    std::wstring wanted(name.begin(), name.end());
+    const std::wstring wanted = gwyf::ToWideUtf8(name);
     u32 found = 0;
 
     if (Process32FirstW(snapshot, &entry)) {
@@ -338,8 +338,10 @@ int Inject(const Options& options) {
     }
 
     // 1. Размещаем путь к DLL в адресном пространстве цели.
-    const usize pathBytes = (dllPath.size() + 1) * sizeof(wchar_t);
-    std::wstring widePath(dllPath.begin(), dllPath.end());
+    // Ширину буфера считаем по РАСШИРЕННОЙ строке: для не-ASCII пути UTF-8
+    // занимает больше байт, чем символов UTF-16, и наоборот.
+    const std::wstring widePath = gwyf::ToWideUtf8(dllPath);
+    const usize pathBytes = (widePath.size() + 1) * sizeof(wchar_t);
 
     void* remotePath = VirtualAllocEx(process.Get(), nullptr, pathBytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (remotePath == nullptr) {

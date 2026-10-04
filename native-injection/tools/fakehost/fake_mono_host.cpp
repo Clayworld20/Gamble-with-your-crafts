@@ -49,7 +49,6 @@ constexpr u32 kTypeI4 = 0x08;
 constexpr u32 kTypeI8 = 0x0a;
 constexpr u32 kTypeR4 = 0x0c;
 constexpr u32 kTypeObject = 0x1c;
-constexpr u32 kTypeString = 0x0e;
 
 struct FakeType {
     u32 code = kTypeI4;
@@ -116,7 +115,6 @@ FakeType g_typeInt{kTypeI4, "int", 4};
 FakeType g_typeLong{kTypeI8, "long", 8};
 FakeType g_typeFloat{kTypeR4, "float", 4};
 FakeType g_typeObject{kTypeObject, "object", 8};
-FakeType g_typeString{kTypeString, "string", 8};
 
 // ── Методы и поля ───────────────────────────────────────────────────────────
 
@@ -142,6 +140,9 @@ FakeVTable g_vtableForTableManager{&g_tableManager};
 FakeVTable g_vtableForGameManager{&g_gameManager};
 
 // Состояние «игры»: сколько раз вызвали ставку и сколько создано объектов.
+// Счётчики вызовов видны снаружи процесса (экспортируются функциями ниже),
+// поэтому volatile; инкремент записан как «= value + 1», потому что ++ на
+// volatile-объекте в C++20 объявлен устаревшим (P1152) и под /WX опасен.
 volatile i64 g_placeBetCalls = 0;
 volatile i64 g_spawnCubeCalls = 0;
 volatile i64 g_destroyObjectCalls = 0;
@@ -468,7 +469,7 @@ __declspec(dllexport) void* mono_runtime_invoke(void* method, void* object, void
     if (fakeMethod == nullptr) return nullptr;
 
     if (std::strcmp(fakeMethod->name, "PlaceBet") == 0) {
-        g_placeBetCalls++;
+        g_placeBetCalls = g_placeBetCalls + 1;
         if (params != nullptr && fakeMethod->paramCount >= 2) {
             if (params[0] != nullptr) g_lastBetAmount = *static_cast<const float*>(params[0]);
             if (params[1] != nullptr) g_lastChipType = *static_cast<const i32*>(params[1]);
@@ -477,7 +478,7 @@ __declspec(dllexport) void* mono_runtime_invoke(void* method, void* object, void
     }
 
     if (std::strcmp(fakeMethod->name, "SpawnTable") == 0) {
-        g_spawnCubeCalls++;
+        g_spawnCubeCalls = g_spawnCubeCalls + 1;
         return &g_betManager;  // «объект стола»
     }
 
@@ -493,7 +494,7 @@ __declspec(dllexport) void* mono_runtime_invoke(void* method, void* object, void
 /// Аналог GameObject.CreatePrimitive в терминах нативного слоя: создаёт объект
 /// и возвращает его «указатель».
 __declspec(dllexport) bool FakeUnity_SpawnCube(int x, int y, int z, unsigned block, void** outHandle) {
-    g_spawnCubeCalls++;
+    g_spawnCubeCalls = g_spawnCubeCalls + 1;
     if (outHandle != nullptr) {
         // Хендл — наглядно различимое значение: адрес счётчика + координаты в младших битах.
         *reinterpret_cast<u64*>(outHandle) = reinterpret_cast<u64>(&g_spawnCubeCalls) ^ (static_cast<u64>(block) << 48) ^
@@ -505,7 +506,7 @@ __declspec(dllexport) bool FakeUnity_SpawnCube(int x, int y, int z, unsigned blo
 
 __declspec(dllexport) void FakeUnity_DestroyObject(void* handle) {
     (void)handle;
-    g_destroyObjectCalls++;
+    g_destroyObjectCalls = g_destroyObjectCalls + 1;
 }
 
 // ── Управление из самотеста ─────────────────────────────────────────────────

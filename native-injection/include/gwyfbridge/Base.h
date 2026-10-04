@@ -50,6 +50,72 @@ namespace gwyf {
     return result;
 }
 
+/// Узкая строка → широкая.
+///
+/// Имена объектов ядра и пути в WinAPI — UTF-16, поэтому конвертируем осознанно.
+/// Раньше на этих местах стоял range-конструктор std::wstring(char*, char*):
+/// он делает то же самое, но MSVC на /W4 помечает такое присваивание C4244
+/// в заголовке стандартной библиотеки (xstring/xutility), а с /WX это отказ
+/// сборки — проверено на CI. Заодно снимаем зависимость от локали.
+[[nodiscard]] inline std::wstring ToWideUtf8(std::string_view text)
+{
+    std::wstring result;
+    if (text.empty()) return result;
+
+#if GWYF_WINDOWS
+    // 0x7FFFFFFF — предел параметра cchWideChar; для имён регионов он недостижим,
+    // но проверка есть, чтобы не полагаться на удачу.
+    if (text.size() <= static_cast<std::size_t>(0x7FFFFFFF)) {
+        const int sourceLength = static_cast<int>(text.size());
+        const int written = ::MultiByteToWideChar(CP_UTF8, 0, text.data(), sourceLength, nullptr, 0);
+        if (written > 0) {
+            result.resize(static_cast<std::size_t>(written));
+            ::MultiByteToWideChar(CP_UTF8, 0, text.data(), sourceLength, result.data(), written);
+            return result;
+        }
+        // Поток не является корректным UTF-8 (например, файл профиля в CP1251).
+        // Тогда идём ниже и расширяем побайтово — без исключений и потерь.
+    }
+#endif
+
+    result.reserve(text.size());
+    for (const char ch : text) {
+        result.push_back(static_cast<wchar_t>(static_cast<unsigned char>(ch)));
+    }
+    return result;
+}
+
+/// Широкая строка → узкая (UTF-8).
+///
+/// Нужна там, где wide-имя попадает в отчёт, лог или текстовый ключ. Явное
+/// преобразование обязательно ещё и потому, что неявное конструирование
+/// std::string из wide-итераторов — это C4244 внутри заголовков STL, а с /WX —
+/// ошибка сборки. На не-Windows платформах берём младший байт: для ASCII
+/// результат идентичен, а round-trip с ToWideUtf8 сохраняется.
+[[nodiscard]] inline std::string ToNarrowUtf8(std::wstring_view text)
+{
+    std::string result;
+    if (text.empty()) return result;
+
+#if GWYF_WINDOWS
+    if (text.size() <= static_cast<std::size_t>(0x7FFFFFFF)) {
+        const int sourceLength = static_cast<int>(text.size());
+        const int written = ::WideCharToMultiByte(CP_UTF8, 0, text.data(), sourceLength, nullptr, 0, nullptr, nullptr);
+        if (written > 0) {
+            result.resize(static_cast<std::size_t>(written));
+            ::WideCharToMultiByte(CP_UTF8, 0, text.data(), sourceLength, result.data(), written, nullptr, nullptr);
+            return result;
+        }
+    }
+#endif
+
+    result.reserve(text.size());
+    for (const wchar_t ch : text) {
+        result.push_back(static_cast<char>(static_cast<unsigned int>(ch) & 0xFFu));
+    }
+    return result;
+}
+
 // ── Базовые типы ────────────────────────────────────────────────────────────
 
 using u8 = std::uint8_t;

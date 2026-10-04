@@ -517,6 +517,32 @@ void TestVoxelMirror() {
 
 // ── 6. Профиль ──────────────────────────────────────────────────────────────
 
+void TestText() {
+    Section("Строки: переход UTF-8 ↔ wide без потерь (места, где MSVC ловил C4244)");
+
+    Check(ToWideUtf8("").empty(), "пустая узкая строка даёт пустую широкую");
+    Check(ToNarrowUtf8(std::wstring_view()).empty(), "пустая широкая строка даёт пустую узкую");
+
+    const std::string region = "Local\\GWYF_MC_BRIDGE_ABI1";
+    const std::wstring wideRegion = ToWideUtf8(region);
+    CheckEqual<usize>(wideRegion.size(), region.size(), "длина ASCII-строки сохраняется при переходе к wide");
+    Check(ToNarrowUtf8(wideRegion) == region, "ASCII-строка переживает round-trip");
+
+    // Имя региона/путь берутся из файла профиля и аргументов командной строки:
+    // если там окажется кириллица, байты обязаны дойти без искажений.
+    const std::string cyrillic = "регион-моста-№1";
+    Check(ToNarrowUtf8(ToWideUtf8(cyrillic)) == cyrillic, "UTF-8 переживает round-trip");
+
+    // Именно эта строка ловилась MSVC как C4244 в заголовке STL:
+    // std::string(regionName.begin(), regionName.end()) в Profile::Describe().
+    profile::Profile described = profile::DefaultForGambleWithYourFriends();
+    described.regionName = ToWideUtf8("Local\\GWYF_ОПИСАНИЕ");
+    const std::string report = described.Describe();
+    Check(report.find("Local\\GWYF_ОПИСАНИЕ") != std::string::npos,
+          "отчёт профиля содержит имя региона без искажений");
+    Check(report.find("Профиль: регион=") == 0, "отчёт профиля начинается с имени региона");
+}
+
 void TestProfile() {
     Section("Профиль: разбор, источники значений, запись в нагрузку");
 
@@ -872,6 +898,7 @@ int main(int argc, char** argv) {
     TestBulkRing();
     TestWireFormat();
     TestVoxelMirror();
+    TestText();
     TestProfile();
 
 #if GWYF_WINDOWS

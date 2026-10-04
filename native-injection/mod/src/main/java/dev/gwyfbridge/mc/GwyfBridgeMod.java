@@ -133,8 +133,9 @@ public final class GwyfBridgeMod implements ClientModInitializer {
         for (BridgeRecords.Record record : BridgeRecords.parse(buffer, count)) {
             switch (record.type) {
                 case BridgeRecords.TYPE_BET_PLACED:
-                    LOGGER.debug("GWYF: ставка {} (тип {}) на столе {}",
-                            record.betAmount(), record.betKind(), record.betTableId());
+                    LOGGER.debug("GWYF: ставка {} (тип {}, флаги 0x{}) на столе {}",
+                            record.betAmount(), record.betKind(),
+                            Integer.toHexString(record.betFlags()), record.betTableId());
                     break;
 
                 case BridgeRecords.TYPE_BET_RESOLVED:

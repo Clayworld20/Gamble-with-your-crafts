@@ -88,7 +88,12 @@ usize BoundedLength(const char* text, usize limit) {
     return length;
 }
 
-/// Собрать строку из managed-объекта (для логов и отчётов).
+/// Собрать строку из managed-объекта.
+///
+/// Используется диагностикой в Publish(): при включённом уровне Debug строковые
+/// аргументы перехваченного метода попадают в журнал. Это единственный способ
+/// увидеть, что игра реально передала в casino-метод (номер стола, имя лобби),
+/// потому что в нагрузку протокола такие значения не помещаются.
 std::string ManagedToString(void* object) {
     if (object == nullptr || !mono::Fn().object_to_string || !mono::Fn().string_to_utf8) return std::string();
 
@@ -414,6 +419,23 @@ public:
             if (warned.fetch_add(1) < 8) {
                 const char* eventName = ipc::ToString(rule.spec->event);
                 GWYF_WARN("Событие %s: ни одна привязка не сработала — проверьте map= в профиле", eventName);
+            }
+        }
+
+        // Диагностика уровня Debug: строковые аргументы метода попадают в лог.
+        // Нужна при калибровке профиля под конкретную сборку игры — видно, ЧТО
+        // именно пришло в метод (идентификатор стола, имя лобби, текст ошибки),
+        // а не только числа. Раскладка аргументов уже посчитана на этапе
+        // привязки (rule.argKinds), так что метаданные Mono здесь не читаются.
+        // Вызов mono_object_to_string уводит управление в managed-код, поэтому
+        // он возможен только по явному запросу: уровень Debug, не Info.
+        if (log::GetLevel() <= log::Level::Debug) {
+            for (usize index = 0; index < rule.argKinds.size() && index < 16; ++index) {
+                if (rule.argKinds[index] != mono::ArgKind::Object) continue;
+                const std::string text = ManagedToString(context.args[index]);
+                if (!text.empty()) {
+                    GWYF_DEBUG("%s: аргумент %zu = \"%s\"", rule.Name().c_str(), index, text.c_str());
+                }
             }
         }
 

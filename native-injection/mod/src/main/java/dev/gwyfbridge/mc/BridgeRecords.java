@@ -39,7 +39,7 @@ public final class BridgeRecords {
     public static final int OFFSET_PAYLOAD = 24;
 
     /** Хеш раскладки, посчитанный нативной частью (см. RecordLayoutText в C++). */
-    public static final int LAYOUT_HASH = 0x3F9910C9;
+    public static final int LAYOUT_HASH = 0x64A0AD23;
 
     // ── Типы записей (совпадают с ipc::RecordType) ─────────────────────────
 
@@ -190,6 +190,11 @@ public final class BridgeRecords {
 
         public long betPlayerId() {
             return payload.getLong(OFFSET_BET_PLAYER_ID);
+        }
+
+        /** Флаги ставки (например, «все в банк»): пишет C++-профиль, читает мод. */
+        public int betFlags() {
+            return payload.getInt(OFFSET_BET_FLAGS);
         }
 
         public long resultPayout() {

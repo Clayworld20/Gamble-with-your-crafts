@@ -107,6 +107,7 @@ std::string RecordLayoutText() {
     Append<u32>(kBetTableId, "bet.tableId", out);
     Append<u64>(kBetPlayerId, "bet.playerId", out);
     Append<u32>(kBetSeat, "bet.seat", out);
+    Append<u32>(kBetFlags, "bet.flags", out);
 
     Append<i64>(kBetResPayout, "result.payout", out);
     Append<i64>(kBetResChipsAfter, "result.chipsAfter", out);
