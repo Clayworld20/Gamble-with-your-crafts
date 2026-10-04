@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ApiDump</AssemblyName>
+    <RootNamespace>ApiDump</RootNamespace>
+    <!-- Throwaway tool: reflects over the pinned Facepunch.Steamworks assembly so we can
+         verify every API signature the game code relies on. Not part of the shipped app. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" />
+  </ItemGroup>
+
+</Project>

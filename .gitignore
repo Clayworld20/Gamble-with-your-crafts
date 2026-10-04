@@ -1,0 +1,29 @@
+# --- .NET ---
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+.vs/
+artifacts/
+publish/
+
+# --- VS Code (keep the shared config we ship, ignore local state) ---
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# --- Steam / runtime artefacts ---
+*.dll.bak
+steam_appid.txt
+logs/
+*.log
+.steam/
+crashdumps/
+
+# --- OS noise ---
+.DS_Store
+Thumbs.db

@@ -1,0 +1,22 @@
+name: api-dump
+
+# Temporary harness: prints the public API surface of the pinned Facepunch.Steamworks
+# package so the game code can be verified against real signatures. Deleted once the
+# signatures are confirmed.
+
+on:
+  push:
+    paths:
+      - 'tools/ApiDump/**'
+      - '.github/workflows/api-dump.yml'
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: dotnet --info
+      - name: Reflect over Facepunch.Steamworks
+        run: dotnet run --project tools/ApiDump/ApiDump.csproj -c Release
