@@ -245,8 +245,9 @@ public static class SelfTest
         copy.FromBytes(raw);
         runner.Check("экспорт/импорт совпадает", GridsEqual(grid, copy));
 
+        var mismatch = new VoxelGrid(4, 4, 4);
         runner.Check("несовпадающий размер снимка отброшен",
-            Throws(() => new VoxelGrid(4, 4, 4).FromBytes(raw)));
+            Throws(() => mismatch.FromBytes(raw)));
 
         runner.Check("слишком большой мир отвергается",
             Throws(() => new VoxelGrid(256, 256, 256)));
@@ -551,7 +552,7 @@ public static class SelfTest
         using var host = new GambleCreativeSystem(hostTransport, "Хост", hostWorld, random: new SeededRandom(1));
         using var client = new GambleCreativeSystem(clientTransport, "Друг", clientWorld, random: new SeededRandom(2));
 
-        Pump(bus, host, client, 3);
+        Pump(bus, host, client);
 
         runner.Check("хост знает о клиенте", host.Players.ContainsKey(clientId));
         runner.Check("клиент знает о хосте", client.Players.ContainsKey(hostId));
@@ -564,13 +565,13 @@ public static class SelfTest
         // Хост строит — клиент видит.
         hostWorld.Set(5, 5, 5, BlockId.Air);
         runner.Check("хост поставил блок", host.Place(5, 5, 5, BlockId.Gold, out _));
-        Pump(bus, host, client, 2);
+        Pump(bus, host, client);
         runner.Check("клиент увидел блок хоста", clientWorld.Get(5, 5, 5) == BlockId.Gold);
         runner.Check("у хоста списалось золото", host.LocalInventory.Get(Blocks.GoldKey) == 7, host.LocalInventory.Describe());
 
         // Клиент строит — хост применяет и рассылает, клиент видит результат.
         runner.Check("клиент поставил блок", client.Place(6, 5, 5, BlockId.Stone, out _));
-        Pump(bus, host, client, 3);
+        Pump(bus, host, client);
         runner.Check("хост применил блок клиента", hostWorld.Get(6, 5, 5) == BlockId.Stone);
         runner.Check("клиент увидел свой блок", clientWorld.Get(6, 5, 5) == BlockId.Stone);
         runner.Check("у клиента списался камень, но не золото",
@@ -579,13 +580,13 @@ public static class SelfTest
 
         // Снос возвращает блок владельцу.
         runner.Check("клиент сломал свой блок", client.Break(6, 5, 5, out _));
-        Pump(bus, host, client, 3);
+        Pump(bus, host, client);
         runner.Check("мир хоста после сноса", hostWorld.Get(6, 5, 5) == BlockId.Air);
         runner.Check("камень вернулся клиенту", client.LocalInventory.Get(Blocks.StoneKey) == 32, client.LocalInventory.Describe());
 
         // Массовая заливка (VoxelBatch + фрагментация при большом объёме).
         runner.Check("клиент залил площадку", client.Fill(new VoxelPos(2, 3, 2), new VoxelPos(9, 3, 9), BlockId.Wood, out string fillMessage), fillMessage);
-        Pump(bus, host, client, 6);
+        Pump(bus, host, client);
         runner.Check("миры совпали после заливки", GridsEqual(hostWorld, clientWorld),
             $"хост: {hostWorld.CountNonAir()}, клиент: {clientWorld.CountNonAir()}");
         runner.Check("дерево списалось у клиента", client.LocalInventory.Get(Blocks.WoodKey) == 24 - 64, client.LocalInventory.Describe());
@@ -605,7 +606,7 @@ public static class SelfTest
         using var host = new GambleCreativeSystem(bus.CreateEndpoint(hostId), "Хост", hostWorld, random: new SeededRandom(4242));
         using var client = new GambleCreativeSystem(bus.CreateEndpoint(clientId), "Друг", clientWorld, random: new SeededRandom(4242));
 
-        Pump(bus, host, client, 3);
+        Pump(bus, host, client);
 
         int goldBefore = client.LocalInventory.Get(Blocks.GoldKey);
         long totalGoldBefore = client.LocalInventory.Get(Blocks.GoldKey) + host.LocalInventory.Get(Blocks.GoldKey);
@@ -614,7 +615,7 @@ public static class SelfTest
         client.CasinoResolved += result => observed = result;
 
         runner.Check("клиент сделал ставку", client.Bet(CasinoGame.Roulette, "red", Blocks.GoldKey, 4, out string betMessage), betMessage);
-        Pump(bus, host, client, 3);
+        Pump(bus, host, client);
 
         runner.Check("результат раунда дошёл до клиента", observed is not null);
         if (observed is not null)
@@ -637,7 +638,7 @@ public static class SelfTest
         int before = clientGoldAfter;
         runner.Check("клиент попробовал поставить больше, чем есть",
             !client.Bet(CasinoGame.Roulette, "red", Blocks.GoldKey, 9999, out string bigMessage), bigMessage);
-        Pump(bus, host, client, 3);
+        Pump(bus, host, client);
         runner.Check("инвентарь не изменился после отказа", client.LocalInventory.Get(Blocks.GoldKey) == before);
 
         // Ставка при отсутствии стола казино запрещена.
@@ -663,7 +664,7 @@ public static class SelfTest
         using var victim = new GambleCreativeSystem(goodClient, "Жертва", victimWorld, random: new SeededRandom(1));
         using var attacker = new GambleCreativeSystem(badClient, "Читер", clientWorld, random: new SeededRandom(1));
 
-        Pump(bus, host, victim, attacker, 3);
+        Pump(bus, host, victim, attacker);
 
         // Клиент шлёт "авторитетную" правку напрямую другому клиенту — она должна быть отброшена.
         var forged = new VoxelEditMessage
@@ -677,7 +678,7 @@ public static class SelfTest
         };
 
         badClient.SendTo(3002, forged.Serialize(), reliable: true);
-        Pump(bus, host, victim, attacker, 2);
+        Pump(bus, host, victim, attacker);
 
         runner.Check("поддельная правка от клиента не применилась", victimWorld.Get(1, 1, 1) == BlockId.Air,
             victimWorld.Get(1, 1, 1).ToString());
@@ -685,7 +686,7 @@ public static class SelfTest
         // Подделанная правка от имени хоста, но отправленная клиентом, тоже не проходит.
         var forgedHost = new VoxelEditMessage { X = 2, Y = 1, Z = 2, Block = (byte)BlockId.Gold, Author = 3001, AuthorName = "Хост" };
         badClient.SendTo(3002, forgedHost.Serialize(), reliable: true);
-        Pump(bus, host, victim, attacker, 2);
+        Pump(bus, host, victim, attacker);
         runner.Check("подделка «от хоста» клиентом не применилась", victimWorld.Get(2, 1, 2) == BlockId.Air);
 
         // Прямая жалоба хосту: клиент шлёт результат казино, будто он хост.
@@ -703,7 +704,7 @@ public static class SelfTest
             RollText = "17",
         };
         badClient.SendTo(3001, fakeCasino.Serialize(), reliable: true);
-        Pump(bus, host, victim, attacker, 2);
+        Pump(bus, host, victim, attacker);
         runner.Check("хост не принял чужой результат казино как свой",
             host.Players[3003].Inventory.Get(Blocks.DiamondKey) == 3,
             host.Players[3003].Inventory.Describe());
@@ -718,12 +719,12 @@ public static class SelfTest
         using var host = new GambleCreativeSystem(bus.CreateEndpoint(4001), "Хост", hostWorld, random: new SeededRandom(1));
         using var client = new GambleCreativeSystem(bus.CreateEndpoint(4002), "Друг", clientWorld, random: new SeededRandom(1));
 
-        Pump(bus, host, client, 3);
+        Pump(bus, host, client);
 
         // Вне границ мира.
         runner.Check("клиент не может строить за границей мира",
             !client.Place(999, 999, 999, BlockId.Dirt, out string outside), outside);
-        Pump(bus, host, client, 2);
+        Pump(bus, host, client);
         runner.Check("мир не изменился после неверного запроса", hostWorld.CountNonAir() == clientWorld.CountNonAir());
 
         // Клетка занята.
@@ -774,19 +775,19 @@ public static class SelfTest
         using var host = new GambleCreativeSystem(bus.CreateEndpoint(8001), "Хост", hostWorld, random: new SeededRandom(5));
         using var client = new GambleCreativeSystem(bus.CreateEndpoint(8002), "Друг", clientWorld, random: new SeededRandom(6));
 
-        Pump(bus, host, client, 3);
+        Pump(bus, host, client);
         runner.Check("до миграции хост — первый игрок", host.Net.IsHost && !client.Net.IsHost);
 
         // Хост ушёл: Steam передаёт владение лобби оставшемуся игроку.
         bus.SetHost(8002);
         host.Tick(Environment.TickCount64);
         client.Tick(Environment.TickCount64);
-        Pump(bus, host, client, 4);
+        Pump(bus, host, client);
 
         runner.Check("после ухода хоста роль перешла клиенту", !host.Net.IsHost && client.Net.IsHost);
         runner.Check("новый хост управляет сессией: поставил блок",
             client.Place(3, 3, 3, BlockId.Gold, out string message), message);
-        Pump(bus, host, client, 3);
+        Pump(bus, host, client);
         runner.Check("правка нового хоста применилась у него самого", clientWorld.Get(3, 3, 3) == BlockId.Gold);
         runner.Check("мир у бывшего хоста тоже обновился", hostWorld.Get(3, 3, 3) == BlockId.Gold);
     }
@@ -835,7 +836,7 @@ public sealed class SeededRandom : IRandomSource
 
     public SeededRandom(int seed) => _random = new Random(seed);
 
-    public int Next(int maxExclusive) => maxExclusive <= 1 ? 0 : _random.Next(maxExclusive);
+    public int NextInt(int maxExclusive) => maxExclusive <= 1 ? 0 : _random.Next(maxExclusive);
 }
 
 /// <summary>
@@ -925,7 +926,7 @@ public sealed class TestRunner
     private readonly List<string> _failures = new();
     private int _passed;
 
-    public void Section(string title)
+    public static void Section(string title)
     {
         Console.WriteLine();
         Console.WriteLine($"── {title} ──");

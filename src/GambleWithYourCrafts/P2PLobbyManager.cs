@@ -50,14 +50,10 @@ public sealed class P2PLobbyManager : INetTransport, IDisposable
 
     private const int MaxPacketsPerChannelPerPump = 256;
 
-    /// <summary>Пакеты больше этого размера считаем мусором и не разбираем.</summary>
-    private const int MaxIncomingPacketBytes = 128 * 1024;
-
     private readonly ConcurrentQueue<Action> _mainThreadQueue = new();
     private readonly List<ulong> _peers = new();
     private readonly List<LobbyInfo> _browseResults = new();
 
-    private byte[] _receiveBuffer = new byte[8192];
     private Lobby? _lobby;
     private bool _hooked;
     private bool _inLobby;
@@ -417,7 +413,6 @@ public sealed class P2PLobbyManager : INetTransport, IDisposable
         string kind = payload.Length > 3 ? NetMessage.TypeName((MessageType)payload[3]) : "?";
         Log?.Invoke($"P2P-пакет {kind} для {BuildInfo.ShortId(peer)} не ушёл.");
         return false;
-        return sent;
     }
 
     public void Broadcast(byte[] payload, bool reliable)
@@ -485,67 +480,40 @@ public sealed class P2PLobbyManager : INetTransport, IDisposable
         ReadChannel(StateChannel);
     }
 
+    /// <summary>
+    /// Вычитать всё, что накопилось в канале. Facepunch отдаёт готовый P2Packet
+    /// (данные + отправитель), поэтому и размер, и автора получаем сразу.
+    /// </summary>
     private void ReadChannel(int channel)
     {
         int processed = 0;
         while (processed < MaxPacketsPerChannelPerPump)
         {
-            if (!SteamNetworking.IsP2PPacketAvailable(out uint size, channel)) return;
-            if (size == 0) return;
-
-            if (size > MaxIncomingPacketBytes)
-            {
-                _packetsDropped++;
-                Log?.Invoke($"Входящий пакет {size} байт слишком велик — отброшен.");
-                DrainOne(size, channel);
-                return;
-            }
-
-            EnsureReceiveCapacity(size);
-
-            var sender = default(SteamId);
-            uint actual = (uint)_receiveBuffer.Length;
-            if (!SteamNetworking.ReadP2PPacket(_receiveBuffer, ref actual, ref sender, channel)) return;
+            P2Packet? packet = SteamNetworking.ReadP2PPacket(channel);
+            if (packet is null) return;
 
             processed++;
             _packetsReceived++;
 
-            var payload = new byte[actual];
-            Buffer.BlockCopy(_receiveBuffer, 0, payload, 0, (int)actual);
+            P2Packet value = packet.Value;
+            if (value.Data.Length == 0) continue;
 
-            if (actual > NetMessage.MaxPacketBytes)
+            if (value.Data.Length > NetMessage.MaxPacketBytes)
             {
                 _packetsDropped++;
-                Log?.Invoke($"Пакет от {BuildInfo.ShortId(sender.Value)} отброшен: {actual} байт (предел {NetMessage.MaxPacketBytes}).");
+                Log?.Invoke($"Пакет от {BuildInfo.ShortId(value.SteamId.Value)} отброшен: {value.Data.Length} байт (предел {NetMessage.MaxPacketBytes}).");
                 continue;
             }
 
             try
             {
-                PacketReceived?.Invoke(sender.Value, payload);
+                PacketReceived?.Invoke(value.SteamId.Value, value.Data);
             }
             catch (Exception ex)
             {
                 Log?.Invoke($"Обработчик пакета упал: {ex.Message}");
             }
         }
-    }
-
-    private void EnsureReceiveCapacity(uint needed)
-    {
-        if (_receiveBuffer.Length >= needed) return;
-        int size = _receiveBuffer.Length;
-        while (size < needed) size *= 2;
-        _receiveBuffer = new byte[Math.Min(size, MaxIncomingPacketBytes)];
-    }
-
-    /// <summary>Вычитать и выкинуть один слишком большой пакет, чтобы очередь не залипла.</summary>
-    private void DrainOne(uint size, int channel)
-    {
-        EnsureReceiveCapacity(size);
-        var sender = default(SteamId);
-        uint actual = (uint)_receiveBuffer.Length;
-        SteamNetworking.ReadP2PPacket(_receiveBuffer, ref actual, ref sender, channel);
     }
 
     // ── Steam-события ────────────────────────────────────────────────────────
@@ -695,7 +663,7 @@ public sealed class P2PLobbyManager : INetTransport, IDisposable
     /// <summary>Отложить работу, результат которой придёт из пула потоков (await) — выполнится в Pump.</summary>
     private void Post(Action action) => _mainThreadQueue.Enqueue(action);
 
-    private LobbyInfo Describe(Lobby lobby)
+    private static LobbyInfo Describe(Lobby lobby)
     {
         string name = lobby.GetData(KeyName);
         string version = lobby.GetData(KeyVersion);
@@ -758,7 +726,7 @@ public sealed class P2PLobbyManager : INetTransport, IDisposable
         sb.Append("Участники:");
         foreach (var member in Roster())
         {
-            sb.Append(" ").Append(member.Name)
+            sb.Append(' ').Append(member.Name)
               .Append(member.IsHost ? "(хост)" : string.Empty)
               .Append(member.IsFriend ? "" : "[не друг]");
         }

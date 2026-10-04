@@ -172,7 +172,7 @@ public sealed class CasinoOutcome
 public interface IRandomSource
 {
     /// <summary>Случайное число в диапазоне [0, maxExclusive).</summary>
-    int Next(int maxExclusive);
+    int NextInt(int maxExclusive);
 }
 
 /// <summary>Криптослучайный источник — для честных бросков на хосте.</summary>
@@ -180,7 +180,7 @@ public sealed class CryptoRandomSource : IRandomSource
 {
     public static readonly CryptoRandomSource Shared = new();
 
-    public int Next(int maxExclusive)
+    public int NextInt(int maxExclusive)
     {
         if (maxExclusive <= 1) return 0;
         return RandomNumberGenerator.GetInt32(maxExclusive);
@@ -373,9 +373,9 @@ public sealed class CasinoDealer
 
     public CasinoDealer(IRandomSource? random = null) => _random = random ?? CryptoRandomSource.Shared;
 
-    public int[] RollDice() => new[] { _random.Next(6) + 1, _random.Next(6) + 1 };
+    public int[] RollDice() => new[] { _random.NextInt(6) + 1, _random.NextInt(6) + 1 };
 
-    public int[] RollRoulette() => new[] { _random.Next(CasinoRules.RoulettePockets) };
+    public int[] RollRoulette() => new[] { _random.NextInt(CasinoRules.RoulettePockets) };
 
     /// <summary>Провести раунд. Ставка уже списана вызывающей стороной.</summary>
     public CasinoOutcome Spin(CasinoGame game, string target, int stake)
@@ -750,6 +750,20 @@ public sealed class GambleCreativeSystem : IDisposable
         }
     }
 
+    /// <summary>Применить пачку правок к локальному миру (после сборки фрагментов).</summary>
+    private int ApplyEdits(List<VoxelEdit> edits)
+    {
+        int applied = 0;
+        foreach (VoxelEdit edit in edits)
+        {
+            if (!World.Set(edit.Pos, edit.Block)) continue;
+            applied++;
+            WorldEditApplied?.Invoke(edit);
+        }
+
+        return applied;
+    }
+
     private void ApplyBatchFragment(ulong from, VoxelBatchMessage message)
     {
         byte[]? assembled = _batchAssembler.Add(message.BatchId, message.Index, message.Count, message.Payload, NowMs());
@@ -757,7 +771,10 @@ public sealed class GambleCreativeSystem : IDisposable
 
         List<VoxelEdit> edits = EditBatchCodec.Decode(assembled, message.Author, message.AuthorName);
         int applied = ApplyEdits(edits);
-        Status?.Invoke($"🏗 Массовая правка: применено {applied} вокселей.");
+        if (applied > 0)
+        {
+            Status?.Invoke($"🏗 {message.AuthorName} изменил {applied} вокселей массовой командой.");
+        }
     }
 
     private void ApplySnapshotFragment(VoxelSnapshotMessage message)
@@ -1570,7 +1587,7 @@ public sealed class GambleCreativeSystem : IDisposable
 
     private static string ShortId(ulong id) => BuildInfo.ShortId(id);
 
-    private string KeyOf(string blockKey) => Blocks.TryParse(blockKey, out BlockId id) ? Blocks.Info(id).Title : blockKey;
+    private static string KeyOf(string blockKey) => Blocks.TryParse(blockKey, out BlockId id) ? Blocks.Info(id).Title : blockKey;
 
     private static string GameName(CasinoGame game) => game == CasinoGame.Dice ? "костях" : "рулетке";
 

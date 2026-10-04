@@ -48,6 +48,28 @@ public static class Terminal
 
     public static string Timestamp() => DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
 
+    /// <summary>Код ANSI для цвета консоли.</summary>
+    private static int AnsiCode(ConsoleColor color) => color switch
+    {
+        ConsoleColor.Black => 30,
+        ConsoleColor.DarkRed => 31,
+        ConsoleColor.DarkGreen => 32,
+        ConsoleColor.DarkYellow => 33,
+        ConsoleColor.DarkBlue => 34,
+        ConsoleColor.DarkMagenta => 35,
+        ConsoleColor.DarkCyan => 36,
+        ConsoleColor.Gray => 37,
+        ConsoleColor.DarkGray => 90,
+        ConsoleColor.Red => 91,
+        ConsoleColor.Green => 92,
+        ConsoleColor.Yellow => 93,
+        ConsoleColor.Blue => 94,
+        ConsoleColor.Magenta => 95,
+        ConsoleColor.Cyan => 96,
+        ConsoleColor.White => 97,
+        _ => 39,
+    };
+
     /// <summary>Обернуть текст ANSI-цветом (или вернуть как есть, если цвета выключены).</summary>
     public static string Colorize(string text, ConsoleColor color) =>
         ColorEnabled ? $"{Esc}{(int)AnsiCode(color)}m{text}{Esc}0m" : text;

@@ -69,7 +69,6 @@ internal sealed class GameApp : IDisposable
     private VoxelPos? _cursor;
     private int _mapHeight;
     private bool _running = true;
-    private bool _stdinClosed;
 
     public GameApp(LaunchOptions options, bool steamReady)
     {
@@ -214,7 +213,7 @@ internal sealed class GameApp : IDisposable
 
             if (line is null)
             {
-                _stdinClosed = true;
+                Log.Warn("Ввод из консоли закончился (stdin закрыт) — игра продолжит работать, выход через quit или Ctrl+C.");
                 return;
             }
 
@@ -348,7 +347,7 @@ internal sealed class GameApp : IDisposable
         }
     }
 
-    private void PrintHelp()
+    private static void PrintHelp()
     {
         var sb = new StringBuilder();
         sb.AppendLine("СЕССИЯ");
@@ -448,7 +447,7 @@ internal sealed class GameApp : IDisposable
         _session.RequestFullSync();
     }
 
-    private void PrintInviteHint()
+    private static void PrintInviteHint()
     {
         Log.Ok("Лобби готово. Пригласите друзей:");
         Log.Info("  1) команда invite — откроется официальный оверлей Steam со списком друзей;");
@@ -592,7 +591,7 @@ internal sealed class GameApp : IDisposable
         else Log.Warn(message);
     }
 
-    private bool TryParseCoords(List<string> parts, int startIndex, out VoxelPos pos)
+    private static bool TryParseCoords(List<string> parts, int startIndex, out VoxelPos pos)
     {
         pos = default;
         if (parts.Count < startIndex + 3)
@@ -673,7 +672,7 @@ internal sealed class GameApp : IDisposable
         else AnimateRoulette(result);
     }
 
-    private void AnimateDice(CasinoResultMessage result)
+    private static void AnimateDice(CasinoResultMessage result)
     {
         if (result.Rolls.Length >= 2 && result.Stake > 0 && !Console.IsOutputRedirected)
         {
@@ -694,7 +693,7 @@ internal sealed class GameApp : IDisposable
         Terminal.WriteLine($"  🎲 Кости: {result.RollText} на «{target}» → {mood}.", color);
     }
 
-    private void AnimateRoulette(CasinoResultMessage result)
+    private static void AnimateRoulette(CasinoResultMessage result)
     {
         if (result.Stake > 0 && !Console.IsOutputRedirected)
         {

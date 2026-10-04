@@ -16,6 +16,10 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
 
+    <!-- CA1861: «не передавайте константные массивы в методы». В консольных командах
+         и тестах такие литералы — самый читаемый вариант, а горячих путей они не касаются. -->
+    <NoWarn>$(NoWarn);CA1861</NoWarn>
+
     <InvariantGlobalization>true</InvariantGlobalization>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <UseAppHost>true</UseAppHost>
