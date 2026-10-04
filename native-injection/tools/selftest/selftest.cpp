@@ -703,6 +703,20 @@ i32 __stdcall TargetFunction(i32 a, i32 b) {
     return a + b;
 }
 
+#if defined(_MSC_VER)
+#define GWYF_TEST_NOINLINE __declspec(noinline)
+#else
+#define GWYF_TEST_NOINLINE __attribute__((noinline))
+#endif
+
+/// Адрес целевой функции, полученный через настоящий вызов.
+/// Нужен, чтобы компилятор не мог подставить известный адрес и встроить тело
+/// функции в место вызова — иначе хук в прологе не участвует в проверке.
+using TargetFn = i32(__stdcall*)(i32, i32);
+GWYF_TEST_NOINLINE TargetFn TargetCallAddress() {
+    return reinterpret_cast<TargetFn>(&TargetFunction);
+}
+
 i32 __stdcall DetourFunction(i32 a, i32 b) {
     // Детур обязан сохранить семантику: считаем вызов и делегируем оригиналу.
     g_callCount = g_callCount + 100;
@@ -718,8 +732,15 @@ void TestHooks() {
           "хук установлен");
     Check(hook::Has(reinterpret_cast<void*>(&TargetFunction)), "хук виден в списке");
 
+    // Вызов обязан быть НАСТОЯЩИМ косвенным. MSVC при /O2 умеет «продавить»
+    // адрес известной функции и встроить её тело прямо в место вызова: тогда
+    // патч в прологе не участвует, и тест падает на исправной библиотеке —
+    // именно это и случилось на CI (получено 7 и счётчик 1 вместо 12 и 100).
+    // volatile-указатель запрещает такую подстановку: чтение адреса становится
+    // наблюдаемым, а вызов — косвенным.
     using Fn = i32(__stdcall*)(i32, i32);
-    auto call = reinterpret_cast<Fn>(&TargetFunction);
+    volatile Fn callTarget = TargetCallAddress();
+    const Fn call = callTarget;
 
     g_callCount = 0;
     const i32 result = call(3, 4);
